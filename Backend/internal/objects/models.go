@@ -14,10 +14,11 @@ type User struct { // Зарегистрированный пользовате�
 }
 
 type AnonymousUser struct { // Анонимный пользователь — участвует без регистрации
-	ID        int
-	Name      string
-	Phone     *string   // Опционально — для матчинга с Placeholder
-	CreatedAt time.Time // Дата первого входа
+	ID           int
+	Name         string
+	Phone        *string // Опционально — для матчинга с Placeholder
+	Access_token string
+	CreatedAt    time.Time // Дата первого входа
 }
 
 type Party struct { // Вечеринка
