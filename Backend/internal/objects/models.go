@@ -11,14 +11,15 @@ type User struct { // Зарегистрированный пользовате�
 	Phone        *string   // Опционально — для будущих уведомлений
 	ProfileImage *string   // URL аватара пользователя
 	CreatedAt    time.Time // Дата регистрации
+	AccessToken  string
 }
 
 type AnonymousUser struct { // Анонимный пользователь — участвует без регистрации
-	ID           int
-	Name         string
-	Phone        *string // Опционально — для матчинга с Placeholder
-	Access_token string
-	CreatedAt    time.Time // Дата первого входа
+	ID          int
+	Name        string
+	Phone       *string // Опционально — для матчинга с Placeholder
+	Accesstoken string
+	CreatedAt   time.Time // Дата первого входа
 }
 
 type Party struct { // Вечеринка
@@ -61,7 +62,7 @@ type Debt struct { // Долг участника по конкретной по
 	ID            int
 	PurchaseID    int     // Покупка к которой относится долг
 	ParticipantID int     // Участник который должен
-	SplitAmount   float64 // Доля от общей суммы покупки которую должен заплатить участник
+	SplitValue    float64 // Доля от общей суммы покупки которую должен заплатить участник
 }
 
 type Payment struct { // Перевод между участниками
