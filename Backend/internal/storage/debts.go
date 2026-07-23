@@ -87,6 +87,40 @@ func (s *Storage) GetDebtsByParticipantID(participantID int) ([]objects.Debt, er
 	return debts, nil
 }
 
+// GetDebtsByEventID возвращает все долги для участников указанной тусовки.
+func (s *Storage) GetDebtsByPartyID(partyID int) ([]objects.Debt, error) {
+	query := `
+        SELECT d.id, d.participant_id, d.purchase_id, d.split_value
+        FROM debts d
+        JOIN purchases p ON d.purchase_id = p.id
+        WHERE p.event_id = $1
+    `
+	rows, err := s.db.Query(query, partyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var debts []objects.Debt
+	for rows.Next() {
+		var debt objects.Debt
+		err := rows.Scan(
+			&debt.ID,
+			&debt.ParticipantID,
+			&debt.PurchaseID,
+			&debt.SplitValue,
+		)
+		if err != nil {
+			return nil, err
+		}
+		debts = append(debts, debt)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return debts, nil
+}
+
 // Принимает: id покупки
 // Делает: удаляет все долги связанные с этой покупкой
 // Возвращает: ошибку если долги не найдены или произошёл сбой
