@@ -11,15 +11,13 @@ type User struct { // Зарегистрированный пользовате�
 	Phone        *string   // Опционально — для будущих уведомлений
 	ProfileImage *string   // URL аватара пользователя
 	CreatedAt    time.Time // Дата регистрации
-	AccessToken  string
 }
 
 type AnonymousUser struct { // Анонимный пользователь — участвует без регистрации
-	ID          int
-	Name        string
-	Phone       *string // Опционально — для матчинга с Placeholder
-	Accesstoken string
-	CreatedAt   time.Time // Дата первого входа
+	ID        int
+	Name      string
+	Phone     *string   // Опционально
+	CreatedAt time.Time // Дата первого входа
 }
 
 type Party struct { // Вечеринка
@@ -79,15 +77,4 @@ type PurchaseIcon struct { // Иконка покупки — для визуа�
 	ID   int
 	Name string // Название иконки — например «Пицца», «Такси», «Кино» и т.д.
 	Icon string // URL иконки
-}
-
-//КОНЕЦ СТРУКТУР БАЗЫ ДАННЫХ
-
-type Settlement struct {
-	ID                int
-	PartyID           int
-	FromParticipantID int
-	ToParticipantID   int
-	Amount            float64
-	CreatedAt         time.Time
 }
