@@ -1,0 +1,80 @@
+// PartyTracker Database Schema v2
+// Вставь этот код на dbdiagram.io
+
+Table users {
+  id integer [primary key, increment]
+  name varchar(100) [not null]
+  email varchar(255) [unique, not null]
+  password_hash varchar(255) [not null]
+  phone varchar(20) [note: 'опционально']
+  profile_image text [note: 'URL аватара']
+  created_at timestamp [default: `now()`]
+}
+
+Table anonymous_users {
+  id integer [primary key, increment]
+  name varchar(100) [not null]
+  phone varchar(20) [note: 'опционально — для матчинга с placeholder']
+  access_token varchar(255) [unique, not null, note: 'хранится на устройстве пользователя']
+  created_at timestamp [default: `now()`]
+}
+
+Table parties {
+  id integer [primary key, increment]
+  name varchar(255) [not null]
+  description text
+  party_image text [note: 'URL обложки вечеринки']
+  owner_id integer [not null, note: 'Participant который является владельцем']
+  invite_code varchar(50) [unique, not null, note: 'используется в пригласительной ссылке']
+  is_active boolean [default: true, note: 'неактивные вечеринки нельзя изменять']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table participants {
+  id integer [primary key, increment]
+  party_id integer [not null, ref: > parties.id]
+  user_or_anonymous_id integer [note: 'NULL если Placeholder']
+  name varchar(100) [not null]
+  is_admin boolean [default: false, note: 'расширенные права управления вечеринкой']
+  is_anonymous boolean [default: false, note: 'если true — ссылается на anonymous_users']
+  is_placeholder boolean [default: false, note: 'пустышка созданная Owner']
+  created_at timestamp [default: `now()`]
+}
+
+Table purchase_icons {
+  id integer [primary key, increment]
+  name varchar(100) [not null, note: 'например Пицца, Такси, Кино']
+  icon text [not null, note: 'URL иконки']
+}
+
+Table purchases {
+  id integer [primary key, increment]
+  party_id integer [not null, ref: > parties.id]
+  buyer_id integer [not null, ref: > participants.id, note: 'Participant который заплатил']
+  name varchar(255) [not null]
+  description text
+  purchase_icon_id integer [ref: > purchase_icons.id, note: 'опционально']
+  price decimal(10,2) [not null, note: 'полная сумма в рублях']
+  split_type integer [not null, note: '0-поровну всем 1-поровну выбранным 2-индив.суммы 3-индив.доли']
+  date_of_purchase timestamp [note: 'когда совершена покупка']
+  created_at timestamp [default: `now()`]
+}
+
+Table debts {
+  id integer [primary key, increment]
+  purchase_id integer [not null, ref: > purchases.id]
+  participant_id integer [not null, ref: > participants.id, note: 'участник который должен']
+  split_amount decimal(10,2) [not null, note: 'доля от общей суммы покупки']
+}
+
+Table payments {
+  id integer [primary key, increment]
+  party_id integer [not null, ref: > parties.id]
+  from_participant_id integer [not null, ref: > participants.id, note: 'кто перевёл']
+  to_participant_id integer [not null, ref: > participants.id, note: 'кому перевели']
+  amount decimal(10,2) [not null, note: 'сумма перевода в рублях']
+  note text [note: 'комментарий']
+  is_confirmed boolean [default: false, note: 'получатель подтвердил получение']
+  created_at timestamp [default: `now()`]
+}
