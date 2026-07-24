@@ -15,7 +15,7 @@ jobs:
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH }}
+          password: ${{ secrets.SERVER_PASSWORD }}
           script: |
             cd /root/Skid/Backend
             git pull origin main
