@@ -19,6 +19,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             export PATH=$PATH:/usr/local/go/bin
+            export CGO_ENABLED=0
             cd /root/Skid/Backend
             git pull origin main
             go build -o skid .
