@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'Skid/**'  # только при изменениях в бэкенде
 
 jobs:
   deploy:
