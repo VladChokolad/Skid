@@ -1,0 +1,25 @@
+name: Deploy to Selectel
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Skid/**'  # только при изменениях в бэкенде
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH }}
+          script: |
+            cd /root/Skid/Backend
+            git pull origin main
+            go build -o skid ./cmd
+            systemctl restart skid
