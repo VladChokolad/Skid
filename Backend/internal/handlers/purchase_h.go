@@ -12,7 +12,6 @@ type PurchaseRequest struct {
 	Password       string `json:"password"`
 	PartyID        int    // Вечеринка в которой сделана покупка
 	BuyerID        int    // Participant который заплатил
-	Name           string
 	Description    *string
 	PurchaseIconID *int       // Иконка покупки — для визуального отображения в списке
 	Price          float64    // Полная сумма покупки в рублях
@@ -21,6 +20,7 @@ type PurchaseRequest struct {
 	CreatedAt      time.Time
 }
 
+func (h *Handler) GetPurchasesHandler(w http.ResponseWriter, r *http.Request)   {}
 func (h *Handler) CreatePurchaseHandler(w http.ResponseWriter, r *http.Request) {}
 func (h *Handler) UpdatePurchaseHandler(w http.ResponseWriter, r *http.Request) {}
 func (h *Handler) DeletePurchaseHandler(w http.ResponseWriter, r *http.Request) {}

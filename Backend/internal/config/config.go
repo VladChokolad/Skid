@@ -3,24 +3,26 @@ package config
 import "os"
 
 type Config struct {
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
-	ServerPort string
-	JWTSecret  string
+	DBHost      string
+	DBPort      string
+	DBUser      string
+	DBPassword  string
+	DBName      string
+	ServerPort  string
+	JWTSecret   string
+	FrontendURL string
 }
 
 func Load() Config {
 	cfg := Config{
-		DBHost:     getEnv("DB_HOST", "localhost"),
-		DBPort:     getEnv("DB_PORT", "5432"),
-		DBUser:     getEnv("DB_USER", "postgres"),
-		DBPassword: getEnv("DB_PASSWORD", ""),
-		DBName:     getEnv("DB_NAME", "skid"),
-		ServerPort: getEnv("SERVER_PORT", "8080"),
-		JWTSecret:  getEnv("JWT_SECRET", ""),
+		DBHost:      getEnv("DB_HOST", "localhost"),
+		DBPort:      getEnv("DB_PORT", "5432"),
+		DBUser:      getEnv("DB_USER", "postgres"),
+		DBPassword:  getEnv("DB_PASSWORD", ""),
+		DBName:      getEnv("DB_NAME", "skid"),
+		ServerPort:  getEnv("SERVER_PORT", "8080"),
+		JWTSecret:   getEnv("JWT_SECRET", ""),
+		FrontendURL: getEnv("FRONTEND_URL", "localhost:3000"),
 	}
 	if cfg.JWTSecret == "" {
 		panic("JWT_SECRET не задан!")
