@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/VladChokolad/Skid/Backend/internal/config"
 	"github.com/VladChokolad/Skid/Backend/internal/storage"
@@ -29,4 +30,7 @@ func main() {
 
 	fmt.Println("Подключились к базе данных!")
 	fmt.Println("Сервер запустится на порту:", cfg.ServerPort)
+	if err := http.ListenAndServe(":"+cfg.ServerPort, nil); err != nil {
+		log.Fatal(err)
+	}
 }
