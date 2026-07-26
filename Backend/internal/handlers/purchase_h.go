@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 )
@@ -20,6 +21,12 @@ type PurchaseRequest struct {
 	CreatedAt      time.Time
 }
 
+func (h *Handler) EchoHandler(w http.ResponseWriter, r *http.Request) {
+	var body map[string]interface{}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	sendSuccessResponse(w, http.StatusOK, "Я получил", body)
+}
 func (h *Handler) GetPurchasesHandler(w http.ResponseWriter, r *http.Request)   {}
 func (h *Handler) CreatePurchaseHandler(w http.ResponseWriter, r *http.Request) {}
 func (h *Handler) UpdatePurchaseHandler(w http.ResponseWriter, r *http.Request) {}
