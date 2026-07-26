@@ -4,8 +4,7 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'Skid/**'  # только при изменениях в бэкенде
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -17,9 +16,11 @@ jobs:
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
+            export PATH=$PATH:/usr/local/go/bin
+            export CGO_ENABLED=0
             cd /root/Skid/Backend
             git pull origin main
-            go build -o skid ./cmd
+            go build -o skid .
             systemctl restart skid
