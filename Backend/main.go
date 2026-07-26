@@ -34,7 +34,7 @@ func main() {
 	r.Use(middleware.CORSMiddleware(cfg))
 
 	// Публичные маршруты
-	r.Post("/echo", h.EchoHandler)
+	r.HandleFunc("/echo", h.EchoHandler)
 	r.Post("/auth/register", h.RegisterHandler)
 	r.Post("/auth/login", h.LoginHandler)
 	r.Post("/auth/join", h.JoinHandler)
