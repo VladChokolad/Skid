@@ -25,7 +25,7 @@
             const messageElement = document.getElementById('message');
 
             try {
-                const response = await fetch('/auth/register', {
+                const response = await fetch('http://94.102.89.110:8080/auth/register', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
