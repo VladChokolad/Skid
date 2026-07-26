@@ -8,8 +8,8 @@
 <body>
     <h2>Register</h2>
     <form id="registerForm">
-        <label for="username">Username:</label><br>
-        <input type="text" id="username" name="username" required><br>
+        <label for="username">Name:</label><br>
+        <input type="text" id="name" name="name" required><br>
         <label for="email">Email:</label><br>
         <input type="email" id="email" name="email" required><br>
         <label for="password">Password:</label><br>
@@ -22,7 +22,7 @@
         document.getElementById('registerForm').addEventListener('submit', async function (event) {
             event.preventDefault();
 
-            const username = document.getElementById('username').value;
+            const username = document.getElementById('name').value;
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const messageElement = document.getElementById('message');
