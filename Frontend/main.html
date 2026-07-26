@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Форма Echo</title>
     <script>
@@ -13,7 +14,7 @@
             };
 
             try {
-                const response = await fetch('/echo', { // Убедитесь, что это правильный путь к EchoHandler
+                const response = await fetch('http://94.102.89.110:8080/echo', { // Убедитесь, что это правильный путь к EchoHandler
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -30,6 +31,7 @@
         }
     </script>
 </head>
+
 <body>
     <h1>Отправка данных в EchoHandler</h1>
     <form onsubmit="event.preventDefault(); sendData();">
@@ -43,4 +45,5 @@
     <h2>Ответ от EchoHandler:</h2>
     <pre id="response"></pre>
 </body>
+
 </html>
