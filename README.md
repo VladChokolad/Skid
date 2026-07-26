@@ -1,7 +1,6 @@
-<<<<<<< HEAD
 # Skid
 Skin'sya s okna, eblan
-=======
+
 ## Для команды Skid: Михаил (backend) + Влад (frontend)
 
 ---
@@ -245,4 +244,3 @@ git status
 git log --oneline
 git diff
 ```
->>>>>>> origin/develop
