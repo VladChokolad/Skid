@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Register</title>
 </head>
+
 <body>
     <h2>Register</h2>
     <form id="registerForm">
@@ -15,7 +17,7 @@
     <p id="message"></p>
 
     <script>
-        document.getElementById('registerForm').addEventListener('submit', async function(event) {
+        document.getElementById('registerForm').addEventListener('submit', async function (event) {
             event.preventDefault();
 
             const username = document.getElementById('username').value;
@@ -23,7 +25,7 @@
             const messageElement = document.getElementById('message');
 
             try {
-                const response = await fetch('/register', {
+                const response = await fetch('/auth/register', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -47,4 +49,5 @@
         });
     </script>
 </body>
+
 </html>
