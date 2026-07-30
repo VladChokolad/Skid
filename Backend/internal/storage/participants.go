@@ -12,9 +12,10 @@ func (s *Storage) CreateParticipant(participant objects.Participant) (int, error
 	// Делает: создаёт запись в таблице participants
 	// Возвращает: id созданного участника или ошибку
 	var id int
-	err := s.db.QueryRow(
-		`INSERT INTO participants (party_id, user_or_anonymous_id, name, is_admin, is_anonymous, is_placeholder)
-		 VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+	err := s.db.QueryRow(`
+		INSERT INTO participants (party_id, user_or_anonymous_id, name, is_admin, is_anonymous, is_placeholder)
+		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+		`,
 		participant.PartyID,
 		participant.UserOrAnonymousID,
 		participant.Name,
@@ -32,10 +33,10 @@ func (s *Storage) GetParticipantByID(id int) (objects.Participant, error) {
 	// Делает: ищет участника по id
 	// Возвращает: структуру Participant или ошибку
 	var participant objects.Participant
-	err := s.db.QueryRow(
-		`SELECT party_id, user_or_anonymous_id, name, is_admin, is_anonymous, is_placeholder, created_at
-		 FROM participants
-		 WHERE id = $1`, id,
+	err := s.db.QueryRow(`
+		SELECT party_id, user_or_anonymous_id, name, is_admin, is_anonymous, is_placeholder, created_at
+		FROM participants
+		WHERE id = $1`, id,
 	).Scan(
 		&participant.PartyID,
 		&participant.UserOrAnonymousID,
@@ -58,10 +59,11 @@ func (s *Storage) GetParticipantsByPartyID(partyID int) ([]objects.Participant, 
 	// Принимает: id вечеринки
 	// Делает: ищет всех участников вечеринки
 	// Возвращает: список участников или ошибку
-	rows, err := s.db.Query(
-		`SELECT id, user_or_anonymous_id, name, is_admin, is_anonymous, is_placeholder, created_at
-		 FROM participants
-		 WHERE party_id = $1`, partyID,
+	rows, err := s.db.Query(`
+		SELECT id, user_or_anonymous_id, name, is_admin, is_anonymous, is_placeholder, created_at
+		FROM participants
+		WHERE party_id = $1
+		`, partyID,
 	)
 	if err != nil {
 		return nil, err
@@ -91,16 +93,17 @@ func (s *Storage) GetParticipantsByPartyID(partyID int) ([]objects.Participant, 
 	}
 	return participants, nil
 }
-func (s *Storage) GetParticipantByUserID(userID, partyID int) (objects.Participant, error) {
+func (s *Storage) GetParticipantByUserAndPartyID(userID, partyID int) (objects.Participant, error) {
 	// Принимает: id пользователя и id вечеринки
 	// Делает: ищет участника-пользователя (не анонима) в конкретной вечеринке
 	// Возвращает: структуру Participant или ошибку
 	var participant objects.Participant
-	err := s.db.QueryRow(
-		`SELECT id, name, is_admin, is_anonymous, is_placeholder, created_at
-		 FROM participants
-		 WHERE user_or_anonymous_id = $1 AND party_id = $2 AND is_anonymous = FALSE`,
-		userID, partyID,
+	err := s.db.QueryRow(`
+		SELECT id, name, is_admin, is_anonymous, is_placeholder, created_at
+		FROM participants
+		WHERE user_or_anonymous_id = $1 
+		AND party_id = $2 AND is_anonymous = FALSE
+		`, userID, partyID,
 	).Scan(
 		&participant.ID,
 		&participant.Name,
@@ -119,16 +122,17 @@ func (s *Storage) GetParticipantByUserID(userID, partyID int) (objects.Participa
 	participant.UserOrAnonymousID = &userID
 	return participant, nil
 }
-func (s *Storage) GetParticipantByAnonID(anonID, partyID int) (objects.Participant, error) {
+func (s *Storage) GetParticipantByAnonAndPartyID(anonID, partyID int) (objects.Participant, error) {
 	// Принимает: id анонимного пользователя и id вечеринки
 	// Делает: ищет участника-анонима в конкретной вечеринке
 	// Возвращает: структуру Participant или ошибку
 	var participant objects.Participant
-	err := s.db.QueryRow(
-		`SELECT id, name, is_admin, is_anonymous, is_placeholder, created_at
-		 FROM participants
-		 WHERE user_or_anonymous_id = $1 AND party_id = $2 AND is_anonymous = TRUE`,
-		anonID, partyID,
+	err := s.db.QueryRow(`
+		SELECT id, name, is_admin, is_anonymous, is_placeholder, created_at
+		FROM participants
+		WHERE user_or_anonymous_id = $1 AND party_id = $2 
+		AND is_anonymous = TRUE
+		`, anonID, partyID,
 	).Scan(
 		&participant.ID,
 		&participant.Name,
@@ -151,10 +155,11 @@ func (s *Storage) UpdateParticipant(participant objects.Participant) error {
 	// Принимает: структуру Participant с обновлёнными данными
 	// Делает: обновляет запись в таблице participants
 	// Возвращает: только ошибку
-	result, err := s.db.Exec(
-		`UPDATE participants
-		 SET user_or_anonymous_id = $1, name = $2, is_admin = $3, is_anonymous = $4, is_placeholder = $5
-		 WHERE id = $6`,
+	result, err := s.db.Exec(`
+		UPDATE participants
+		SET user_or_anonymous_id = $1, name = $2, is_admin = $3, is_anonymous = $4, is_placeholder = $5
+		WHERE id = $6
+		`,
 		participant.UserOrAnonymousID,
 		participant.Name,
 		participant.IsAdmin,
@@ -179,7 +184,10 @@ func (s *Storage) DeleteParticipant(id int) error {
 	// Принимает: id участника
 	// Делает: удаляет запись из таблицы participants
 	// Возвращает: только ошибку
-	result, err := s.db.Exec("DELETE FROM participants WHERE id = $1", id)
+	result, err := s.db.Exec(`
+	DELETE FROM participants 
+	WHERE id = $1
+	`, id)
 	if err != nil {
 		return err
 	}

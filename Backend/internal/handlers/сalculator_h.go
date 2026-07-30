@@ -7,7 +7,7 @@ import (
 	"github.com/VladChokolad/Skid/Backend/internal/calculator"
 )
 
-func (h *Handler) CalculateResultHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetSettlementsHandler(w http.ResponseWriter, r *http.Request) {
 	var req int
 	//докодируем тело запроса
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -53,8 +53,11 @@ func (s *Storage) CreateParty(party objects.Party) (int, error) {
 func (s *Storage) GetPartyByID(id int) (objects.Party, error) {
 	//Принимает:  Делает:  Возвращает:
 	var Party objects.Party
-	err := s.db.QueryRow(
-		"SELECT name, description, party_image, owner_id, invite_code, is_active, created_at, updated_at From parties WHERE id = $1", id).Scan(
+	err := s.db.QueryRow(`
+		SELECT name, description, party_image, owner_id, invite_code, is_active, created_at, updated_at 
+		From parties 
+		WHERE id = $1
+		`, id).Scan(
 		&Party.Name,
 		&Party.Description,
 		&Party.PartyImage,
@@ -75,10 +78,11 @@ func (s *Storage) GetPartyByID(id int) (objects.Party, error) {
 func (s *Storage) GetPartyByInviteCode(code string) (objects.Party, error) {
 	//Принимает:  Делает:  Возвращает:
 	var Party objects.Party
-	err := s.db.QueryRow(
-		`SELECT id, name, description, party_image, owner_id, is_active, created_at, updated_at 
+	err := s.db.QueryRow(`
+		SELECT id, name, description, party_image, owner_id, is_active, created_at, updated_at 
 		From parties 
-		WHERE id = $1`, code).Scan(
+		WHERE id = $1
+		`, code).Scan(
 		&Party.ID,
 		&Party.Name,
 		&Party.Description,
@@ -100,15 +104,15 @@ func (s *Storage) GetPartiesByUserID(userID int) ([]objects.Party, error) {
 	//Принимает:id пользователя/анонима  Делает:ищет все вечеринки ассоциированные с пользователем  Возвращает: список вечеринок
 	// Шаг 1 — выполняем запрос
 	// Query возвращает много строк — в отличие от QueryRow
-	rows, err := s.db.Query(
-		`SELECT parties.id, parties.name, parties.description,
-                parties.party_image, parties.owner_id, parties.invite_code,
-                parties.created_at, parties.updated_at
+	rows, err := s.db.Query(`
+		SELECT parties.id, parties.name, parties.description,
+               parties.party_image, parties.owner_id, parties.invite_code,
+               parties.created_at, parties.updated_at
         FROM parties
         INNER JOIN participants ON parties.id = participants.party_id
-        WHERE participants.user_or_anonymous_id = $1`,
-		userID,
-	)
+        WHERE participants.user_or_anonymous_id = $1
+		AND participants.is_anonymous = FALSE
+		`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -153,11 +157,52 @@ func (s *Storage) GetPartiesByUserID(userID int) ([]objects.Party, error) {
 	// если тусовок нет — вернётся пустой слайс [], nil
 	return parties, nil
 }
+func (s *Storage) GetPartiesByAnonID(anonID int) ([]objects.Party, error) {
+	rows, err := s.db.Query(`
+		SELECT parties.id, parties.name, parties.description,
+               parties.party_image, parties.owner_id, parties.invite_code,
+               parties.created_at, parties.updated_at
+        FROM parties
+        INNER JOIN participants ON parties.id = participants.party_id
+        WHERE participants.user_or_anonymous_id = $1
+        AND participants.is_anonymous = TRUE
+		`, anonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var parties []objects.Party
+	for rows.Next() {
+		var party objects.Party
+		err := rows.Scan(
+			&party.ID,
+			&party.Name,
+			&party.Description,
+			&party.PartyImage,
+			&party.OwnerID,
+			&party.InviteCode,
+			&party.CreatedAt,
+			&party.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		parties = append(parties, party)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return parties, nil
+}
 func (s *Storage) UpdateParty(party objects.Party) error {
 	//Принимает:Информацию о вечеринке  Делает:Обновляет бд  Возвращает: только ошибку
-	result, err := s.db.Exec(
-		"UPDATE users SET name = $1, description = $2, party_image = $3, owner_id = $4, is_active = $5 WHERE id = $6",
-		party.Name, party.Description, party.PartyImage, party.OwnerID, party.OwnerID, party.ID,
+	result, err := s.db.Exec(`
+		UPDATE parties 
+		SET name = $1, description = $2, party_image = $3, owner_id = $4, is_active = $5 
+		WHERE id = $6
+		`,
+		party.Name, party.Description, party.PartyImage, party.OwnerID, party.IsActive, party.ID,
 	)
 	if err != nil {
 		return err
@@ -174,10 +219,10 @@ func (s *Storage) UpdateParty(party objects.Party) error {
 }
 func (s *Storage) DeleteParty(id int) error {
 	//Принимает:  Делает:  Возвращает:
-	result, err := s.db.Exec(
-		"DELETE FROM parties WHERE id = $1",
-		id,
-	)
+	result, err := s.db.Exec(`
+	DELETE FROM parties 
+	WHERE id = $1
+	`, id)
 	if err != nil {
 		return err
 	}

@@ -14,16 +14,17 @@ type User struct { // Зарегистрированный пользовате�
 }
 
 type AnonymousUser struct { // Анонимный пользователь — участвует без регистрации
-	ID        int
-	Name      string
-	Phone     *string   // Опционально
-	CreatedAt time.Time // Дата первого входа
+	ID           int
+	Name         string
+	Phone        *string   // Опционально
+	CreatedAt    time.Time // Дата первого входа
+	LastActivity time.Time //Дата последней активности
 }
 
 type Party struct { // Вечеринка
 	ID          int
 	Name        string
-	Description string
+	Description *string
 	PartyImage  *string // URL обложки вечеринки
 	OwnerID     int     // ID User который является владельцем
 	InviteCode  string  // Уникальный код по которому можно присоединиться — используется в пригласительной ссылке

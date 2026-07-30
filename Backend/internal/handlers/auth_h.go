@@ -29,19 +29,19 @@ type JoinRequest struct {
 	Name       string `json:"name"`       // обязательно — минимум для отображения
 }
 
-func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	//докодируем тело запроса
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Неверный формат запроса")
 		return
 	}
-	//валидация пустых полей
+	//валидация пустых полей - нужно удалить
 	if req.Name == "" || req.Email == "" || req.Password == "" {
 		sendErrorResponse(w, http.StatusBadRequest, "Все поля обязательны для заполнения")
 		return
 	}
-	//Валидация длинны пароля
+	//Валидация длинны пароля - нужно удалить
 	if len(req.Password) < 8 {
 		sendErrorResponse(w, http.StatusBadRequest, "Пароль должен содержать минимум 8 символов")
 		return
@@ -65,25 +65,15 @@ func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		PasswordHash: string(passwordHash),
 	}
 	//Отправляем пользователя в бд
-	userID, err := h.storage.CreateUser(user)
+	_, err = h.storage.CreateUser(user)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при создании пользователя")
 		return
 	}
-	// Генерируем JWT токен
-	token, err := h.generateUserJWT(userID)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при генерации токена")
-		return
-	}
 
-	sendSuccessResponse(w, http.StatusCreated, "Пользователь успешно зарегистрирован", map[string]interface{}{
-		"user":  user,
-		"token": token,
-	})
+	sendSuccessResponse(w, http.StatusCreated, "Пользователь успешно зарегистрирован", nil)
 }
-
-func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -122,7 +112,7 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 }
-func (h *Handler) JoinHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateAnonymousHandler(w http.ResponseWriter, r *http.Request) {
 	var req JoinRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

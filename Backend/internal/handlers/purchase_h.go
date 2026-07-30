@@ -64,9 +64,9 @@ func (h *Handler) CreatePurchaseHandler(w http.ResponseWriter, r *http.Request) 
 	isAnon := middleware.GetIsAnonymousFromContext(r.Context())
 	var participant objects.Participant
 	if isAnon {
-		participant, err = h.storage.GetParticipantByAnonID(userID, partyID)
+		participant, err = h.storage.GetParticipantByAnonAndPartyID(userID, partyID)
 	} else {
-		participant, err = h.storage.GetParticipantByUserID(userID, partyID)
+		participant, err = h.storage.GetParticipantByUserAndPartyID(userID, partyID)
 	}
 	if err != nil {
 		sendErrorResponse(w, http.StatusForbidden, "Вы не участник этой тусовки")
