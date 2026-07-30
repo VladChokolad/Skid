@@ -73,6 +73,7 @@ func (h *Handler) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	sendSuccessResponse(w, http.StatusCreated, "Пользователь успешно зарегистрирован", nil)
 }
+
 func (h *Handler) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
@@ -112,6 +113,7 @@ func (h *Handler) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 }
+
 func (h *Handler) CreateAnonymousHandler(w http.ResponseWriter, r *http.Request) {
 	var req JoinRequest
 
@@ -162,8 +164,7 @@ func (h *Handler) CreateAnonymousHandler(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-// generateJWT генерирует JWT токен
-func (h *Handler) generateUserJWT(ID int) (string, error) {
+func (h *Handler) generateUserJWT(ID int) (string, error) { // generateJWT генерирует JWT токен
 	claims := jwt.MapClaims{
 		"id":     ID,
 		"isanon": false,
@@ -174,6 +175,7 @@ func (h *Handler) generateUserJWT(ID int) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(h.cfg.JWTSecret))
 }
+
 func (h *Handler) generateAnonJWT(ID int) (string, error) {
 	claims := jwt.MapClaims{
 		"id":     ID,

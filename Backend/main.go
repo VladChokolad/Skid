@@ -29,6 +29,7 @@ func main() {
 	r := chi.NewRouter()
 
 	// Глобальные middleware
+	r.Use(chimw.RequestID)
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(middleware.CORSMiddleware(cfg))

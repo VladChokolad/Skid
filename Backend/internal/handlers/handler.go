@@ -45,6 +45,7 @@ func sendSuccessResponse(w http.ResponseWriter, status int, message string, data
 		"data":    data,
 	})
 }
+
 func setTokenCookie(w http.ResponseWriter, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "token",

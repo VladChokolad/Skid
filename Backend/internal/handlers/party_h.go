@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/VladChokolad/Skid/Backend/internal/auth"
 	"github.com/VladChokolad/Skid/Backend/internal/middleware"
 	"github.com/VladChokolad/Skid/Backend/internal/objects"
 )
@@ -44,10 +45,84 @@ func (h *Handler) GetMyPartiesHandler(w http.ResponseWriter, r *http.Request) { 
 		"data": parties_list,
 	})
 }
-func (h *Handler) GetPartyHandler(w http.ResponseWriter, r *http.Request) { //Показывает конкретную вечеринку полностью
+
+func (h *Handler) GetPartyHandler(w http.ResponseWriter, r *http.Request) {
+	partyID, err := strconv.Atoi(chi.URLParam(r, "partyID"))
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Неверный ID тусовки")
+		return
+	}
+
+	party, err := h.storage.GetPartyByID(partyID)
+	if err != nil {
+		sendErrorResponse(w, http.StatusNotFound, "Тусовка не найдена")
+		return
+	}
+
+	sendSuccessResponse(w, http.StatusOK, "Тусовка", party)
 }
-func (h *Handler) JoinPartyHandler(w http.ResponseWriter, r *http.Request) { //Присоединяет человека к вечеринке
+
+func (h *Handler) JoinPartyHandler(w http.ResponseWriter, r *http.Request) {
+	var req JoinRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Неверный формат запроса")
+		return
+	}
+
+	if req.InviteCode == "" || req.Name == "" {
+		sendErrorResponse(w, http.StatusBadRequest, "Invite-код и имя обязательны")
+		return
+	}
+
+	// Найти тусовку по invite_code
+	party, err := h.storage.GetPartyByInviteCode(req.InviteCode)
+	if err != nil {
+		sendErrorResponse(w, http.StatusNotFound, "Тусовка не найдена")
+		return
+	}
+
+	if !party.IsActive {
+		sendErrorResponse(w, http.StatusBadRequest, "Тусовка закрыта")
+		return
+	}
+
+	// Создать анонима
+	anon := objects.AnonymousUser{
+		Name: req.Name,
+	}
+	anonID, err := h.storage.CreateAnonymousUser(anon)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при создании пользователя")
+		return
+	}
+
+	// Создать участника
+	participant := objects.Participant{
+		PartyID:           party.ID,
+		UserOrAnonymousID: &anonID,
+		Name:              req.Name,
+		IsAnonymous:       true,
+	}
+	participantID, err := h.storage.CreateParticipant(participant)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при добавлении участника")
+		return
+	}
+
+	// Создать JWT токен для анонима
+	token, err := auth.CreateToken(anonID, true, h.cfg.JWTSecret)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при генерации токена")
+		return
+	}
+
+	setTokenCookie(w, token)
+	sendSuccessResponse(w, http.StatusCreated, "Вы присоединились к тусовке", map[string]interface{}{
+		"partyID":       party.ID,
+		"participantID": participantID,
+	})
 }
+
 func (h *Handler) CreatePartyHandler(w http.ResponseWriter, r *http.Request) { //Создаёт вечеринку
 	var req PartyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -85,6 +160,7 @@ func (h *Handler) CreatePartyHandler(w http.ResponseWriter, r *http.Request) { /
 	sendSuccessResponse(w, http.StatusCreated, "тусовка создана!", nil)
 
 }
+
 func (h *Handler) UpdatePartyHandler(w http.ResponseWriter, r *http.Request) {
 	// partyID из URL
 	partyID, err := strconv.Atoi(chi.URLParam(r, "partyID"))
