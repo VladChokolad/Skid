@@ -81,7 +81,7 @@ func (s *Storage) GetPartyByInviteCode(code string) (objects.Party, error) {
 	err := s.db.QueryRow(`
 		SELECT id, name, description, party_image, owner_id, is_active, created_at, updated_at 
 		From parties 
-		WHERE id = $1
+		WHERE invite_code = $1
 		`, code).Scan(
 		&Party.ID,
 		&Party.Name,

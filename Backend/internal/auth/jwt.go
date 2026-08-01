@@ -8,17 +8,17 @@ import (
 )
 
 type Claims struct {
-	UserID      int  `json:"userID"`
-	IsAnonymous bool `json:"IsAnonymous"` // "user" или "anonymous"
+	UserOrAnonymousID int  `json:"userOrAnonymousID"`
+	IsAnonymous       bool `json:"isAnonymous"` // "user" или "anonymous"
 	jwt.RegisteredClaims
 }
 
-func CreateToken(userID int, isAnonymous bool, secret string) (string, error) {
+func CreateToken(userID int, isAnonymous bool, exp int, secret string) (string, error) {
 	claims := Claims{
-		UserID:      userID,
-		IsAnonymous: isAnonymous,
+		UserOrAnonymousID: userID,
+		IsAnonymous:       isAnonymous,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * 24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(14 * 24 * time.Hour)), //14 дней работы
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}

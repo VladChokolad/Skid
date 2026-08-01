@@ -54,7 +54,7 @@ func (h *Handler) CreatePurchaseHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// 2. userID из контекста
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
 	if !ok {
 		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
 		return

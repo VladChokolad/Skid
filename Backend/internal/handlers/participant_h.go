@@ -38,7 +38,7 @@ func (h *Handler) CreateParticipantHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
 	if !ok {
 		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
 		return
@@ -98,7 +98,7 @@ func (h *Handler) ReplaceParticipantsHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
 	if !ok {
 		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
 		return
@@ -146,7 +146,7 @@ func (h *Handler) DeleteParticipantHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
 	if !ok {
 		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
 		return

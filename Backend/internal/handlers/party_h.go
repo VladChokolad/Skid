@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/VladChokolad/Skid/Backend/internal/auth"
 	"github.com/VladChokolad/Skid/Backend/internal/middleware"
 	"github.com/VladChokolad/Skid/Backend/internal/objects"
 )
@@ -18,9 +17,14 @@ type PartyRequest struct {
 	PartyImage  *string `json:"partyImage"`
 }
 
+type JoinRequest struct {
+	InviteCode    string
+	PlaceHolderID *int
+}
+
 func (h *Handler) GetMyPartiesHandler(w http.ResponseWriter, r *http.Request) { //Показывает все вечеринки пользователя
 	// 1. Получаем userID и флаг анонимности
-	ID, ok := middleware.GetUserIDFromContext(r.Context())
+	ID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
 	isAnonymous := middleware.GetIsAnonymousFromContext(r.Context())
 
 	// 2. Проверяем, авторизован ли пользователь (если требуется)
@@ -62,61 +66,162 @@ func (h *Handler) GetPartyHandler(w http.ResponseWriter, r *http.Request) {
 	sendSuccessResponse(w, http.StatusOK, "Тусовка", party)
 }
 
-func (h *Handler) JoinPartyHandler(w http.ResponseWriter, r *http.Request) {
-	var req JoinRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Неверный формат запроса")
+func (h *Handler) PreviewJoinHandler(w http.ResponseWriter, r *http.Request) {
+	inviteCode := chi.URLParam(r, "inviteCode")
+	if inviteCode == "" {
+		sendErrorResponse(w, http.StatusBadRequest, "Invite-код обязателен")
 		return
 	}
 
-	if req.InviteCode == "" || req.Name == "" {
-		sendErrorResponse(w, http.StatusBadRequest, "Invite-код и имя обязательны")
-		return
-	}
-
-	// Найти тусовку по invite_code
-	party, err := h.storage.GetPartyByInviteCode(req.InviteCode)
+	// Найти тусовку
+	party, err := h.storage.GetPartyByInviteCode(inviteCode)
 	if err != nil {
 		sendErrorResponse(w, http.StatusNotFound, "Тусовка не найдена")
 		return
 	}
-
 	if !party.IsActive {
 		sendErrorResponse(w, http.StatusBadRequest, "Тусовка закрыта")
 		return
 	}
 
-	// Создать анонима
-	anon := objects.AnonymousUser{
-		Name: req.Name,
-	}
-	anonID, err := h.storage.CreateAnonymousUser(anon)
+	// Получить всех участников
+	participants, err := h.storage.GetParticipantsByPartyID(party.ID)
 	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при создании пользователя")
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при получении участников")
 		return
 	}
 
-	// Создать участника
+	// Отфильтровать только placeholders
+	var placeholders []map[string]interface{}
+	for _, p := range participants {
+		if p.IsPlaceholder {
+			placeholders = append(placeholders, map[string]interface{}{
+				"id":   p.ID,
+				"name": p.Name,
+			})
+		}
+	}
+
+	// Если пустой — вернуть пустой слайс а не nil
+	if placeholders == nil {
+		placeholders = []map[string]interface{}{}
+	}
+
+	sendSuccessResponse(w, http.StatusOK, "Информация о тусовке", map[string]interface{}{
+		"partyID":      party.ID,
+		"partyName":    party.Name,
+		"placeholders": placeholders,
+	})
+}
+
+func (h *Handler) JoinPartyHandler(w http.ResponseWriter, r *http.Request) {
+	inviteCode := chi.URLParam(r, "inviteCode")
+	if inviteCode == "" {
+		sendErrorResponse(w, http.StatusBadRequest, "Invite-код обязателен")
+		return
+	}
+
+	// Получить userID из контекста
+	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
+	if !ok {
+		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
+		return
+	}
+	isAnon := middleware.GetIsAnonymousFromContext(r.Context())
+
+	// Найти тусовку
+	party, err := h.storage.GetPartyByInviteCode(inviteCode)
+	if err != nil {
+		sendErrorResponse(w, http.StatusNotFound, "Тусовка не найдена")
+		return
+	}
+	if !party.IsActive {
+		sendErrorResponse(w, http.StatusBadRequest, "Тусовка закрыта")
+		return
+	}
+
+	// Проверить что пользователь ещё не в тусовке
+	if isAnon {
+		_, err = h.storage.GetParticipantByAnonAndPartyID(userID, party.ID)
+	} else {
+		_, err = h.storage.GetParticipantByUserAndPartyID(userID, party.ID)
+	}
+	if err == nil {
+		sendErrorResponse(w, http.StatusConflict, "Вы уже участник этой тусовки")
+		return
+	}
+
+	// Получить имя пользователя
+	var name string
+	if isAnon {
+		anon, err := h.storage.GetAnonymousByID(userID)
+		if err != nil {
+			sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при получении данных")
+			return
+		}
+		name = anon.Name
+	} else {
+		user, err := h.storage.GetUserByID(userID)
+		if err != nil {
+			sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при получении данных")
+			return
+		}
+		name = user.Name
+	}
+
+	// Декодировать тело — placeholderID опционален
+	var req struct {
+		PlaceholderID *int `json:"placeholderID"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	// Если выбрал placeholder — занять его место
+	if req.PlaceholderID != nil {
+		placeholder, err := h.storage.GetParticipantByID(*req.PlaceholderID)
+		if err != nil {
+			sendErrorResponse(w, http.StatusNotFound, "Placeholder не найден")
+			return
+		}
+		if !placeholder.IsPlaceholder {
+			sendErrorResponse(w, http.StatusBadRequest, "Этот участник не является placeholder")
+			return
+		}
+		if placeholder.PartyID != party.ID {
+			sendErrorResponse(w, http.StatusForbidden, "Placeholder не принадлежит этой тусовке")
+			return
+		}
+
+		placeholder.UserOrAnonymousID = &userID
+		placeholder.IsAnonymous = isAnon
+		placeholder.IsPlaceholder = false
+		placeholder.Name = name
+
+		if err := h.storage.UpdateParticipant(placeholder); err != nil {
+			sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при занятии места")
+			return
+		}
+
+		sendSuccessResponse(w, http.StatusOK, "Вы заняли место участника", map[string]interface{}{
+			"partyID":       party.ID,
+			"participantID": placeholder.ID,
+		})
+		return
+	}
+
+	// Иначе создать нового участника
 	participant := objects.Participant{
 		PartyID:           party.ID,
-		UserOrAnonymousID: &anonID,
-		Name:              req.Name,
-		IsAnonymous:       true,
+		UserOrAnonymousID: &userID,
+		Name:              name,
+		IsAnonymous:       isAnon,
 	}
+
 	participantID, err := h.storage.CreateParticipant(participant)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при добавлении участника")
 		return
 	}
 
-	// Создать JWT токен для анонима
-	token, err := auth.CreateToken(anonID, true, h.cfg.JWTSecret)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при генерации токена")
-		return
-	}
-
-	setTokenCookie(w, token)
 	sendSuccessResponse(w, http.StatusCreated, "Вы присоединились к тусовке", map[string]interface{}{
 		"partyID":       party.ID,
 		"participantID": participantID,
@@ -130,7 +235,7 @@ func (h *Handler) CreatePartyHandler(w http.ResponseWriter, r *http.Request) { /
 		return
 	}
 	// Только зарегистрированные могут создавать тусовки
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
 	if !ok || userID == 0 {
 		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
 		return
@@ -170,7 +275,7 @@ func (h *Handler) UpdatePartyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Только зарегистрированные
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
 	if !ok {
 		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
 		return
@@ -220,7 +325,7 @@ func (h *Handler) DeletePartyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Только зарегистрированные
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
 	if !ok {
 		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
 		return

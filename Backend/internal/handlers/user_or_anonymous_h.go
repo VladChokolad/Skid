@@ -14,7 +14,7 @@ type UpdateUserRequest struct {
 }
 
 func (h *Handler) GetMyUserOrAnonymousHandler(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
 	if !ok {
 		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
 		return
@@ -46,7 +46,7 @@ func (h *Handler) GetMyUserOrAnonymousHandler(w http.ResponseWriter, r *http.Req
 }
 
 func (h *Handler) UpdateMyUserOrAnonymousHandler(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
 	if !ok {
 		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
 		return
@@ -89,7 +89,7 @@ func (h *Handler) UpdateMyUserOrAnonymousHandler(w http.ResponseWriter, r *http.
 }
 
 func (h *Handler) DeleteMyUserOrAnonymousHandler(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
 	if !ok {
 		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
 		return

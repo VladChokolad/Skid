@@ -35,42 +35,44 @@ func main() {
 	r.Use(middleware.CORSMiddleware(cfg))
 
 	// Публичные маршруты
-	r.HandleFunc("/echo", h.EchoHandler)
+	r.HandleFunc("/echo", h.EchoHandler) //Тестовый - нужно удалить
 	r.Post("/auth/register", h.RegisterUserHandler)
 	r.Post("/auth/login", h.LoginUserHandler)
-	r.Post("/auth/join", h.CreateAnonymousHandler)
 
 	// Защищённые маршруты
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.AuthMiddleware(cfg))
-
+		r.Use(middleware.AuthMiddleware(cfg, db))
+		//профиль
 		r.Get("/profile", h.GetMyUserOrAnonymousHandler)
-		r.Get("/profile", h.UpdateMyUserOrAnonymousHandler)
-		r.Get("/profile", h.DeleteMyUserOrAnonymousHandler)
-
+		r.Put("/profile", h.UpdateMyUserOrAnonymousHandler)
+		r.Delete("/profile", h.DeleteMyUserOrAnonymousHandler)
+		//тусовки
 		r.Get("/parties", h.GetMyPartiesHandler)
 		r.Post("/parties", h.CreatePartyHandler) //недоступно для анонимов
-		r.Post("/parties", h.JoinPartyHandler)
+		//вступление в тусовку
+		r.Get("/invite/{inviteCode}", h.PreviewJoinHandler)
+		r.Post("/invite/{inviteCode}/join", h.JoinPartyHandler)
 
 		r.Route("/parties/{partyID}", func(r chi.Router) {
+			//тусовка
 			r.Get("/", h.GetPartyHandler)
 			r.Put("/", h.UpdatePartyHandler)
 			r.Delete("/", h.DeletePartyHandler)
-
+			//Участники
 			r.Get("/participants", h.GetParticipantsHandler)
 			r.Post("/participants", h.CreateParticipantHandler)
 			r.Put("/participants/{participantID}/replace", h.ReplaceParticipantsHandler)
 			r.Delete("/participants/{participantID}", h.DeleteParticipantHandler)
-
+			//траты
 			r.Get("/purchases", h.GetPurchasesHandler)
 			r.Post("/purchases", h.CreatePurchaseHandler)
 			r.Put("/purchases/{purchaseID}", h.UpdatePurchaseHandler)
 			r.Delete("/purchases/{purchaseID}", h.DeletePurchaseHandler)
-
+			//платы
 			r.Get("/payments", h.GetPaymentsHandler)
 			r.Post("/payments", h.CreatePaymentHandler)
 			r.Post("/payments/{paymentID}/confirm", h.ConfirmPaymentHandler)
-
+			//Сводка
 			r.Get("/settlements", h.GetSettlementsHandler)
 		})
 	})

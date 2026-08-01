@@ -39,7 +39,7 @@ func (h *Handler) CreatePaymentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
 	if !ok {
 		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
 		return
@@ -108,7 +108,7 @@ func (h *Handler) ConfirmPaymentHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
 	if !ok {
 		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
 		return
