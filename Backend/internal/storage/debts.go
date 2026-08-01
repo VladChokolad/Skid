@@ -11,10 +11,11 @@ import (
 // Возвращает: id созданной записи или ошибку
 func (s *Storage) CreateDebt(debt objects.Debt) (int, error) {
 	var id int
-	err := s.db.QueryRow(
-		"INSERT INTO debts (purchase_id, participant_id, split_value) VALUES ($1, $2, $3) RETURNING id",
-		debt.PurchaseID, debt.ParticipantID, debt.SplitValue,
-	).Scan(&id)
+	err := s.db.QueryRow(`
+		INSERT INTO debts (purchase_id, participant_id, split_value) 
+		VALUES ($1, $2, $3) 
+		RETURNING id
+		`, debt.PurchaseID, debt.ParticipantID, debt.SplitValue).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -25,10 +26,11 @@ func (s *Storage) CreateDebt(debt objects.Debt) (int, error) {
 // Делает: ищет все долги связанные с этой покупкой
 // Возвращает: слайс структур Debt или ошибку
 func (s *Storage) GetDebtsByPurchaseID(purchaseID int) ([]objects.Debt, error) {
-	rows, err := s.db.Query(
-		`SELECT id, participant_id, split_value
+	rows, err := s.db.Query(`
+		SELECT id, participant_id, split_value
 		FROM debts
-		WHERE purchase_id = $1`, purchaseID)
+		WHERE purchase_id = $1
+		`, purchaseID)
 	if err != nil {
 		return nil, err
 	}
@@ -58,10 +60,11 @@ func (s *Storage) GetDebtsByPurchaseID(purchaseID int) ([]objects.Debt, error) {
 // Делает: ищет все долги этого участника по всем покупкам
 // Возвращает: слайс структур Debt или ошибку
 func (s *Storage) GetDebtsByParticipantID(participantID int) ([]objects.Debt, error) {
-	rows, err := s.db.Query(
-		`SELECT id, purchase_id, split_value
+	rows, err := s.db.Query(`
+		SELECT id, purchase_id, split_value
 		FROM debts
-		WHERE participant_id = $1`, participantID)
+		WHERE participant_id = $1
+		`, participantID)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +96,7 @@ func (s *Storage) GetDebtsByPartyID(partyID int) ([]objects.Debt, error) {
         SELECT d.id, d.participant_id, d.purchase_id, d.split_value
         FROM debts d
         JOIN purchases p ON d.purchase_id = p.id
-        WHERE p.event_id = $1
+        WHERE p.party_id = $1
     `
 	rows, err := s.db.Query(query, partyID)
 	if err != nil {
@@ -125,9 +128,10 @@ func (s *Storage) GetDebtsByPartyID(partyID int) ([]objects.Debt, error) {
 // Делает: удаляет все долги связанные с этой покупкой
 // Возвращает: ошибку если долги не найдены или произошёл сбой
 func (s *Storage) DeleteDebtsByPurchaseID(purchaseID int) error {
-	result, err := s.db.Exec(
-		"DELETE FROM debts WHERE purchase_id = $1", purchaseID,
-	)
+	result, err := s.db.Exec(`
+	DELETE FROM debts 
+	WHERE purchase_id = $1
+	`, purchaseID)
 	if err != nil {
 		return err
 	}

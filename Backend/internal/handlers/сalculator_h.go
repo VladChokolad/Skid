@@ -1,35 +1,36 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi/v5"
 
 	"github.com/VladChokolad/Skid/Backend/internal/calculator"
 )
 
-func (h *Handler) CalculateResultHandler(w http.ResponseWriter, r *http.Request) {
-	var req int
-	//докодируем тело запроса
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Неверный формат запроса")
+func (h *Handler) GetSettlementsHandler(w http.ResponseWriter, r *http.Request) {
+	partyID, err := strconv.Atoi(chi.URLParam(r, "partyID"))
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Неверный ID тусовки")
 		return
 	}
-	payments, err := h.storage.GetPaymentsByPartyID(req)
+	payments, err := h.storage.GetPaymentsByPartyID(partyID)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Невозможно получить данные из базы данных")
 		return
 	}
-	purchases, err := h.storage.GetPurchasesByPartyID(req)
+	purchases, err := h.storage.GetPurchasesByPartyID(partyID)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Невозможно получить данные из базы данных")
 		return
 	}
-	participants, err := h.storage.GetParticipantsByPartyID(req)
+	participants, err := h.storage.GetParticipantsByPartyID(partyID)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Невозможно получить данные из базы данных")
 		return
 	}
-	debts, err := h.storage.GetDebtsByPartyID(req)
+	debts, err := h.storage.GetDebtsByPartyID(partyID)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Невозможно получить данные из базы данных")
 		return

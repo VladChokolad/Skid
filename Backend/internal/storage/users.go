@@ -10,8 +10,11 @@ import (
 func (s *Storage) CreateUser(User objects.User) (int, error) {
 	//Принимает: Данные о пользователе.  Делает: создаёт строку пользователя в бд.  Возвращает: id только что созданного user.
 	var id int
-	err := s.db.QueryRow(
-		"INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id",
+	err := s.db.QueryRow(`
+		INSERT INTO users (name, email, password_hash) 
+		VALUES ($1, $2, $3) 
+		RETURNING id
+		`,
 		User.Name, User.Email, User.PasswordHash).Scan(&id)
 
 	if err != nil {
@@ -22,9 +25,11 @@ func (s *Storage) CreateUser(User objects.User) (int, error) {
 func (s *Storage) GetUserByID(id int) (objects.User, error) {
 	//Принимает: Id пользователя  Делает: Читает из бд  Возвращает: всю информацию о пользователе.
 	var User objects.User
-	err := s.db.QueryRow(
-		"SELECT name, email, password_hash, phone, profile_image,created_at FROM users WHERE id = $1",
-		id).Scan(
+	err := s.db.QueryRow(`
+		SELECT name, email, password_hash, phone, profile_image,created_at 
+		FROM users 
+		WHERE id = $1
+		`, id).Scan(
 		&User.Name,
 		&User.Email,
 		&User.PasswordHash,
@@ -44,9 +49,11 @@ func (s *Storage) GetUserByID(id int) (objects.User, error) {
 func (s *Storage) GetUserByEmail(email string) (objects.User, error) {
 	//Принимает: email пользователя Делает: Читает из бд.  Возвращает: всю информацию о пользователе.
 	var User objects.User
-	err := s.db.QueryRow(
-		"SELECT id, name, password_hash, phone, profile_image,created_at FROM users WHERE email = $1",
-		email).Scan(
+	err := s.db.QueryRow(`
+		SELECT id, name, password_hash, phone, profile_image,created_at 
+		FROM users 
+		WHERE email = $1
+		`, email).Scan(
 		&User.ID,
 		&User.Name,
 		&User.PasswordHash,
@@ -64,8 +71,11 @@ func (s *Storage) GetUserByEmail(email string) (objects.User, error) {
 }
 func (s *Storage) UpdateUser(user objects.User) error {
 	//Принимает: Cтруктуру User. Делает: обнавляет информацию в бд  Возвращает: только ошибку
-	result, err := s.db.Exec(
-		"UPDATE users SET name = $1, phone = $2, profile_image = $3 WHERE id = $4",
+	result, err := s.db.Exec(`
+		UPDATE users 
+		SET name = $1, phone = $2, profile_image = $3 
+		WHERE id = $4
+		`,
 		user.Name, user.Phone, user.ProfileImage, user.ID,
 	)
 	if err != nil {
@@ -84,9 +94,10 @@ func (s *Storage) UpdateUser(user objects.User) error {
 }
 func (s *Storage) DeleteUser(id int) error {
 	//Принимает: id пользователя  Делает: удаляет пользователя  Возвращает: только ошибку
-	result, err := s.db.Exec(
-		"DELETE FROM users WHERE id = $1",
-		id,
+	result, err := s.db.Exec(`
+	DELETE FROM users 
+	WHERE id = $1
+	`, id,
 	)
 	if err != nil {
 		return err

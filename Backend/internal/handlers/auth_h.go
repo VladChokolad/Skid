@@ -3,10 +3,9 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
+	"github.com/VladChokolad/Skid/Backend/internal/auth"
 	"github.com/VladChokolad/Skid/Backend/internal/objects"
-	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -22,26 +21,23 @@ type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
-
-// Для входа анонима по ссылке
-type JoinRequest struct {
-	InviteCode string `json:"inviteCode"` // обязательно
-	Name       string `json:"name"`       // обязательно — минимум для отображения
+type AnonymousCreationRequest struct {
+	Name string `json:"name"` // обязательно — минимум для отображения
 }
 
-func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	//докодируем тело запроса
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Неверный формат запроса")
 		return
 	}
-	//валидация пустых полей
+	//валидация пустых полей - нужно удалить
 	if req.Name == "" || req.Email == "" || req.Password == "" {
 		sendErrorResponse(w, http.StatusBadRequest, "Все поля обязательны для заполнения")
 		return
 	}
-	//Валидация длинны пароля
+	//Валидация длинны пароля - нужно удалить
 	if len(req.Password) < 8 {
 		sendErrorResponse(w, http.StatusBadRequest, "Пароль должен содержать минимум 8 символов")
 		return
@@ -65,25 +61,16 @@ func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		PasswordHash: string(passwordHash),
 	}
 	//Отправляем пользователя в бд
-	userID, err := h.storage.CreateUser(user)
+	_, err = h.storage.CreateUser(user)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при создании пользователя")
 		return
 	}
-	// Генерируем JWT токен
-	token, err := h.generateUserJWT(userID)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при генерации токена")
-		return
-	}
 
-	sendSuccessResponse(w, http.StatusCreated, "Пользователь успешно зарегистрирован", map[string]interface{}{
-		"user":  user,
-		"token": token,
-	})
+	sendSuccessResponse(w, http.StatusCreated, "Пользователь успешно зарегистрирован", nil)
 }
 
-func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -110,41 +97,21 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Генерируем JWT токен
-	token, err := h.generateUserJWT(user.ID)
+	token, err := auth.CreateToken(user.ID, false, 14, h.cfg.JWTSecret)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при генерации токена")
 		return
 	}
-
-	sendSuccessResponse(w, http.StatusOK, "Успешный вход", map[string]interface{}{
-		"user":  user,
-		"token": token,
-	})
-
+	setTokenCookie(w, token)
+	sendSuccessResponse(w, http.StatusOK, "Успешный вход", nil)
 }
-func (h *Handler) JoinHandler(w http.ResponseWriter, r *http.Request) {
-	var req JoinRequest
+
+/* УДАЛИТЬ
+func (h *Handler) CreateAnonymousHandler(w http.ResponseWriter, r *http.Request) {
+	var req AnonymousCreationRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Неверный формат запроса")
-		return
-	}
-
-	if req.InviteCode == "" || req.Name == "" {
-		sendErrorResponse(w, http.StatusBadRequest, "Invite-код и имя обязательны")
-		return
-	}
-
-	// Ищем вечеринку по invite-коду
-	party, err := h.storage.GetPartyByInviteCode(req.InviteCode)
-	if err != nil {
-		sendErrorResponse(w, http.StatusNotFound, "Вечеринка с таким invite-кодом не найдена")
-		return
-	}
-
-	// Проверяем, не закрыта ли вечеринка
-	if party.IsActive == false {
-		sendErrorResponse(w, http.StatusBadRequest, "Вечеринка закрыта, присоединение невозможно")
 		return
 	}
 
@@ -155,7 +122,7 @@ func (h *Handler) JoinHandler(w http.ResponseWriter, r *http.Request) {
 
 	anonymoususerID, err := h.storage.CreateAnonymousUser(anonymoususer)
 	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при присоединении к вечеринке")
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при создании анонима")
 		return
 	}
 
@@ -166,32 +133,8 @@ func (h *Handler) JoinHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendSuccessResponse(w, http.StatusOK, "Успешное присоединение к вечеринке", map[string]interface{}{
-		"anonymoususer": anonymoususerID,
-		"token":         token,
-	})
+	setTokenCookie(w, token)
+	sendSuccessResponse(w, http.StatusOK, "Анонимный пользователь создан", nil)
 }
-
-// generateJWT генерирует JWT токен
-func (h *Handler) generateUserJWT(ID int) (string, error) {
-	claims := jwt.MapClaims{
-		"id":     ID,
-		"isanon": false,
-		"exp":    time.Now().Add(time.Hour * 12 * 1).Unix(), // токен действителен 12 часов
-		"iat":    time.Now().Unix(),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(h.cfg.JWTSecret))
-}
-func (h *Handler) generateAnonJWT(ID int) (string, error) {
-	claims := jwt.MapClaims{
-		"id":     ID,
-		"isanon": true,
-		"exp":    time.Now().Add(time.Hour * 12 * 1).Unix(), // токен действителен 12 часов
-		"iat":    time.Now().Unix(),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(h.cfg.JWTSecret))
-}
+*/
+// Вспомогательные функции

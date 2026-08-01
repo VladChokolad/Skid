@@ -34,3 +34,7 @@ func Connect(cfg config.Config) (*Storage, error) {
 func (s *Storage) Close() {
 	s.db.Close()
 }
+
+func (s *Storage) DB() *sql.DB {
+	return s.db
+}

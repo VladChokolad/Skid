@@ -2,64 +2,114 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
+	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/VladChokolad/Skid/Backend/internal/activity"
 	"github.com/VladChokolad/Skid/Backend/internal/auth"
 	"github.com/VladChokolad/Skid/Backend/internal/config"
+	"github.com/VladChokolad/Skid/Backend/internal/storage"
 )
 
 type contextKey string
 
 const (
-	ContextUserID      contextKey = "userID"
-	ContextIsAnonymous contextKey = "isAnonymous"
+	ContextUserOrAnonymousID contextKey = "userOrAnonymousID"
+	ContextIsAnonymous       contextKey = "isAnonymous"
 )
 
-func AuthMiddleware(cfg config.Config) func(http.Handler) http.Handler {
+// GuestOrAuthMiddleware обрабатывает как зарегистрированных, так и анонимных пользователей.
+// Если токен отсутствует или невалиден – создаёт нового анонима, выдаёт токен и пропускает запрос.
+// Если токен есть и валиден – извлекает userID и isAnonymous из токена.
+// Во всех случаях кладёт в контекст userID и isAnonymous.
+func AuthMiddleware(cfg config.Config, s *storage.Storage) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-			// 1. Достать токен из cookie
+			// 1. Пытаемся получить токен из cookie
 			cookie, err := r.Cookie("token")
-			if err != nil {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
+			if err != nil { // Мы не получили cookie value
+				// создаём анонима
+				anonID, err := s.CreateAnonymousUser()
+				if err != nil {
+					http.Error(w, "Failed to create guest", http.StatusInternalServerError)
+					return
+				}
 
-			// 2. Проверить токен
+				// Генерируем токен для нового анонима
+				token, err := auth.CreateToken(anonID, true, 30, cfg.JWTSecret)
+				if err != nil {
+					http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+					return
+				}
+				setGuestCookie(w, token, cfg)
+				// Кладём данные в контекст и передаём управление дальше (аноним создан)
+				ctx := context.WithValue(r.Context(), ContextUserOrAnonymousID, anonID)
+				ctx = context.WithValue(ctx, ContextIsAnonymous, true)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+
+			} //Мы получили cookie.Value
+			// Парсим токен
 			claims, err := auth.ParseToken(cookie.Value, cfg.JWTSecret)
-			if err != nil {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+
+			if errors.Is(err, jwt.ErrTokenExpired) {
+				// Токен просрочен – возвращаем 401
+				http.Error(w, "Token expired", http.StatusUnauthorized)
+				return
+			}
+			// Другие ошибки (невалидный токен) – тоже 401
+			if err != nil && !errors.Is(err, jwt.ErrTokenExpired) {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}
 
-			// 3. Положить данные в контекст
-			ctx := context.WithValue(r.Context(), ContextUserID, claims.UserID)
+			// Токен валиден – обновляем sliding expiration
+			if claims.IsAnonymous {
+				newToken, err := auth.CreateToken(claims.UserOrAnonymousID, true, 30, cfg.JWTSecret)
+				if err == nil {
+					setGuestCookie(w, newToken, cfg)
+				}
+			} else {
+				newToken, err := auth.CreateToken(claims.UserOrAnonymousID, false, 14, cfg.JWTSecret)
+				if err == nil {
+					setGuestCookie(w, newToken, cfg)
+				}
+			}
+			// 3. Обновление last_activity для анонимов (с троттлингом)
+			if claims.IsAnonymous && activity.ShouldUpdate(claims.UserOrAnonymousID) {
+				go func(anonID int) {
+					_ = s.UpdateAnonymousActivity(anonID)
+				}(claims.UserOrAnonymousID)
+			}
+
+			// 4. Кладём данные в контекст
+			ctx := context.WithValue(r.Context(), ContextUserOrAnonymousID, claims.UserOrAnonymousID)
 			ctx = context.WithValue(ctx, ContextIsAnonymous, claims.IsAnonymous)
 
-			// 4. Обновить токен (sliding expiration)
-			newToken, err := auth.CreateToken(claims.UserID, claims.IsAnonymous, cfg.JWTSecret)
-			if err == nil {
-				http.SetCookie(w, &http.Cookie{
-					Name:     "token",
-					Value:    newToken,
-					HttpOnly: true,
-					Secure:   true,
-					SameSite: http.SameSiteLaxMode,
-					Path:     "/",
-					MaxAge:   30 * 24 * 60 * 60,
-				})
-			}
-
-			// 5. Передать дальше
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-func GetUserIDFromContext(ctx context.Context) (int, bool) {
-	userID, ok := ctx.Value(ContextUserID).(int)
-	return userID, ok
+// setGuestCookie устанавливает cookie с токеном (единая функция для всех случаев).
+func setGuestCookie(w http.ResponseWriter, token string, cfg config.Config) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    token,
+		HttpOnly: true,
+		Secure:   false, // в продакшене обязательно, для локальной разработки можно сделать флаг
+		SameSite: http.SameSiteLaxMode,
+		Path:     "/",
+		MaxAge:   30 * 24 * 60 * 60, // 30 дней
+	})
+}
+
+func GetUserOrAnonymousIDFromContext(ctx context.Context) (int, bool) {
+	userOrAnonymousID, ok := ctx.Value(ContextUserOrAnonymousID).(int)
+	return userOrAnonymousID, ok
 }
 
 func GetIsAnonymousFromContext(ctx context.Context) bool {

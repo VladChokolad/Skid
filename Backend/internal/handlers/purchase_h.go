@@ -54,7 +54,7 @@ func (h *Handler) CreatePurchaseHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// 2. userID из контекста
-	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
 	if !ok {
 		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
 		return
@@ -64,9 +64,9 @@ func (h *Handler) CreatePurchaseHandler(w http.ResponseWriter, r *http.Request) 
 	isAnon := middleware.GetIsAnonymousFromContext(r.Context())
 	var participant objects.Participant
 	if isAnon {
-		participant, err = h.storage.GetParticipantByAnonID(userID, partyID)
+		participant, err = h.storage.GetParticipantByAnonAndPartyID(userID, partyID)
 	} else {
-		participant, err = h.storage.GetParticipantByUserID(userID, partyID)
+		participant, err = h.storage.GetParticipantByUserAndPartyID(userID, partyID)
 	}
 	if err != nil {
 		sendErrorResponse(w, http.StatusForbidden, "Вы не участник этой тусовки")

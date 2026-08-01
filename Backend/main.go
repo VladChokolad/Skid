@@ -29,42 +29,51 @@ func main() {
 	r := chi.NewRouter()
 
 	// Глобальные middleware
+	r.Use(chimw.RequestID)
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(middleware.CORSMiddleware(cfg))
 
 	// Публичные маршруты
-	r.HandleFunc("/echo", h.EchoHandler)
-	r.Post("/auth/register", h.RegisterHandler)
-	r.Post("/auth/login", h.LoginHandler)
-	r.Post("/auth/join", h.JoinHandler)
+	r.HandleFunc("/echo", h.EchoHandler) //Тестовый - нужно удалить
+	r.Post("/auth/register", h.RegisterUserHandler)
+	r.Post("/auth/login", h.LoginUserHandler)
 
 	// Защищённые маршруты
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.AuthMiddleware(cfg))
-
-		//r.Get("/parties", h.GetMyPartiesHandler)
-		//r.Post("/parties", h.CreatePartyHandler)
+		r.Use(middleware.AuthMiddleware(cfg, db))
+		//профиль
+		r.Get("/profile", h.GetMyUserOrAnonymousHandler)
+		r.Put("/profile", h.UpdateMyUserOrAnonymousHandler)
+		r.Delete("/profile", h.DeleteMyUserOrAnonymousHandler)
+		//тусовки
+		r.Get("/parties", h.GetMyPartiesHandler)
+		r.Post("/parties", h.CreatePartyHandler) //недоступно для анонимов
+		//вступление в тусовку
+		r.Get("/invite/{inviteCode}", h.PreviewJoinHandler)
+		r.Post("/invite/{inviteCode}/join", h.JoinPartyHandler)
 
 		r.Route("/parties/{partyID}", func(r chi.Router) {
-			//	r.Get("/", h.GetPartyHandler)
-			//	r.Put("/", h.UpdatePartyHandler)
-			//	r.Delete("/", h.DeletePartyHandler)
-
-			//	r.Get("/participants", h.GetParticipantsHandler)
-			//	r.Post("/participants", h.CreateParticipantHandler)
-			//	r.Delete("/participants/{participantID}", h.DeleteParticipantHandler)
-
+			//тусовка
+			r.Get("/", h.GetPartyHandler)
+			r.Put("/", h.UpdatePartyHandler)
+			r.Delete("/", h.DeletePartyHandler)
+			//Участники
+			r.Get("/participants", h.GetParticipantsHandler)
+			r.Post("/participants", h.CreateParticipantHandler)
+			r.Put("/participants/{participantID}/replace", h.ReplaceParticipantsHandler)
+			r.Delete("/participants/{participantID}", h.DeleteParticipantHandler)
+			//траты
 			r.Get("/purchases", h.GetPurchasesHandler)
 			r.Post("/purchases", h.CreatePurchaseHandler)
 			r.Put("/purchases/{purchaseID}", h.UpdatePurchaseHandler)
 			r.Delete("/purchases/{purchaseID}", h.DeletePurchaseHandler)
-
-			//	r.Get("/payments", h.GetPaymentsHandler)
-			//	r.Post("/payments", h.CreatePaymentHandler)
-			//	r.Post("/payments/{paymentID}/confirm", h.ConfirmPaymentHandler)
-
-			//	r.Get("/settlements", h.GetSettlementsHandler)
+			//платы
+			r.Get("/payments", h.GetPaymentsHandler)
+			r.Post("/payments", h.CreatePaymentHandler)
+			r.Post("/payments/{paymentID}/confirm", h.ConfirmPaymentHandler)
+			//Сводка
+			r.Get("/settlements", h.GetSettlementsHandler)
 		})
 	})
 

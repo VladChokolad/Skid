@@ -12,9 +12,11 @@ func (s *Storage) CreatePayment(p objects.Payment) (int, error) {
 	// Делает: создаёт запись в таблице payments
 	// Возвращает: id созданного перевода или ошибку
 	var id int
-	err := s.db.QueryRow(
-		`INSERT INTO payments (party_id, from_participant_id, to_participant_id, amount, note, is_confirmed)
-		 VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+	err := s.db.QueryRow(`
+		INSERT INTO payments (party_id, from_participant_id, to_participant_id, amount, note, is_confirmed)
+		VALUES ($1, $2, $3, $4, $5, $6) 
+		RETURNING id
+		`,
 		p.PartyID,
 		p.FromParticipantID,
 		p.ToParticipantID,
@@ -32,11 +34,11 @@ func (s *Storage) GetPaymentByID(id int) (objects.Payment, error) {
 	// Делает: ищет перевод по id
 	// Возвращает: структуру Payment или ошибку
 	var payment objects.Payment
-	err := s.db.QueryRow(
-		`SELECT party_id, from_participant_id, to_participant_id, amount, note, is_confirmed, created_at
-		 FROM payments
-		 WHERE id = $1`, id,
-	).Scan(
+	err := s.db.QueryRow(`
+		SELECT party_id, from_participant_id, to_participant_id, amount, note, is_confirmed, created_at
+		FROM payments
+		WHERE id = $1
+		`, id).Scan(
 		&payment.PartyID,
 		&payment.FromParticipantID,
 		&payment.ToParticipantID,
@@ -58,10 +60,11 @@ func (s *Storage) GetPaymentsByPartyID(partyID int) ([]objects.Payment, error) {
 	// Принимает: id вечеринки
 	// Делает: ищет все переводы внутри вечеринки
 	// Возвращает: список переводов или ошибку
-	rows, err := s.db.Query(
-		`SELECT id, from_participant_id, to_participant_id, amount, note, is_confirmed, created_at
-		 FROM payments
-		 WHERE party_id = $1`, partyID,
+	rows, err := s.db.Query(`
+		SELECT id, from_participant_id, to_participant_id, amount, note, is_confirmed, created_at
+		FROM payments
+		WHERE party_id = $1
+		`, partyID,
 	)
 	if err != nil {
 		return nil, err
@@ -95,8 +98,11 @@ func (s *Storage) ConfirmPayment(id int) error {
 	// Принимает: id перевода
 	// Делает: помечает перевод как подтверждённый получателем
 	// Возвращает: только ошибку
-	result, err := s.db.Exec(
-		"UPDATE payments SET is_confirmed = TRUE WHERE id = $1", id,
+	result, err := s.db.Exec(`
+		UPDATE payments 
+		SET is_confirmed = TRUE 
+		WHERE id = $1
+		`, id,
 	)
 	if err != nil {
 		return err
@@ -115,7 +121,10 @@ func (s *Storage) DeletePayment(id int) error {
 	// Принимает: id перевода
 	// Делает: удаляет запись из таблицы payments
 	// Возвращает: только ошибку
-	result, err := s.db.Exec("DELETE FROM payments WHERE id = $1", id)
+	result, err := s.db.Exec(`
+		DELETE FROM payments 
+		WHERE id = $1
+		`, id)
 	if err != nil {
 		return err
 	}
