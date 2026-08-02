@@ -45,14 +45,3 @@ func sendSuccessResponse(w http.ResponseWriter, status int, message string, data
 		"data":    data,
 	})
 }
-
-func setTokenCookie(w http.ResponseWriter, token string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     "token",
-		Value:    token,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		Path:     "/",
-		MaxAge:   30 * 24 * 60 * 60,
-	})
-}
