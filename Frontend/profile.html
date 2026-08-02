@@ -58,18 +58,18 @@
 
                 const result = await response.json();
 
-                alert('Сырой ответ сервера: ' + JSON.stringify(result));
-
                 if (!response.ok) {
                     showMessage('Ошибка загрузки: ' + (result.error || JSON.stringify(result)), true);
                     return;
                 }
 
                 const user = result.data;
+                // Поддержка двух форматов ключей: camelCase (User) и PascalCase (AnonymousUser)
                 emailInput.value = user.email || '';
-                nameInput.value = user.name || '';
-                phoneInput.value = user.phone || '';
-                createdAtInput.value = user.createdAt ? new Date(user.createdAt).toLocaleDateString('ru-RU') : '';
+                nameInput.value = user.name || user.Name || '';
+                phoneInput.value = user.phone || user.Phone || '';
+                const createdAt = user.createdAt || user.CreatedAt;
+                createdAtInput.value = createdAt ? new Date(createdAt).toLocaleDateString('ru-RU') : '';
                 showMessage('', false);
             } catch (error) {
                 showMessage('Сетевая ошибка: ' + error.message, true);
