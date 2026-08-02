@@ -58,6 +58,8 @@
 
                 const result = await response.json();
 
+                alert('Сырой ответ сервера: ' + JSON.stringify(result));
+
                 if (!response.ok) {
                     showMessage('Ошибка загрузки: ' + (result.error || JSON.stringify(result)), true);
                     return;
