@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/VladChokolad/Skid/Backend/internal/auth"
+	"github.com/VladChokolad/Skid/Backend/internal/middleware"
 	"github.com/VladChokolad/Skid/Backend/internal/objects"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -102,39 +103,6 @@ func (h *Handler) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при генерации токена")
 		return
 	}
-	setTokenCookie(w, token)
+	middleware.SetGuestCookie(w, token)
 	sendSuccessResponse(w, http.StatusOK, "Успешный вход", nil)
 }
-
-/* УДАЛИТЬ
-func (h *Handler) CreateAnonymousHandler(w http.ResponseWriter, r *http.Request) {
-	var req AnonymousCreationRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Неверный формат запроса")
-		return
-	}
-
-	// Создаем анонимного пользователя
-	anonymoususer := objects.AnonymousUser{
-		Name: req.Name,
-	}
-
-	anonymoususerID, err := h.storage.CreateAnonymousUser(anonymoususer)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при создании анонима")
-		return
-	}
-
-	// Генерируем JWT токен для анонима
-	token, err := h.generateAnonJWT(anonymoususerID)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при генерации токена")
-		return
-	}
-
-	setTokenCookie(w, token)
-	sendSuccessResponse(w, http.StatusOK, "Анонимный пользователь создан", nil)
-}
-*/
-// Вспомогательные функции

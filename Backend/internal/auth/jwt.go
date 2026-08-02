@@ -18,7 +18,7 @@ func CreateToken(userID int, isAnonymous bool, exp int, secret string) (string, 
 		UserOrAnonymousID: userID,
 		IsAnonymous:       isAnonymous,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(14 * 24 * time.Hour)), //14 дней работы
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(exp) * 24 * time.Hour)), //14 дней работы
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}

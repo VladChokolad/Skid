@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
@@ -61,7 +62,6 @@ func main() {
 			//Участники
 			r.Get("/participants", h.GetParticipantsHandler)
 			r.Post("/participants", h.CreateParticipantHandler)
-			r.Put("/participants/{participantID}/replace", h.ReplaceParticipantsHandler)
 			r.Delete("/participants/{participantID}", h.DeleteParticipantHandler)
 			//траты
 			r.Get("/purchases", h.GetPurchasesHandler)
@@ -78,6 +78,14 @@ func main() {
 	})
 
 	log.Println("Сервер запущен на порту:", cfg.ServerPort)
+
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		for range ticker.C {
+			_, _ = db.DB().Exec(`DELETE FROM anonymous_users WHERE last_activity < NOW() - INTERVAL '7 days'`)
+		}
+	}()
+
 	if err := http.ListenAndServe(":"+cfg.ServerPort, r); err != nil {
 		log.Fatal(err)
 	}

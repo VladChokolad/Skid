@@ -44,7 +44,7 @@ func AuthMiddleware(cfg config.Config, s *storage.Storage) func(http.Handler) ht
 					http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 					return
 				}
-				setGuestCookie(w, token, cfg)
+				SetGuestCookie(w, token)
 				// Кладём данные в контекст и передаём управление дальше (аноним создан)
 				ctx := context.WithValue(r.Context(), ContextUserOrAnonymousID, anonID)
 				ctx = context.WithValue(ctx, ContextIsAnonymous, true)
@@ -70,12 +70,12 @@ func AuthMiddleware(cfg config.Config, s *storage.Storage) func(http.Handler) ht
 			if claims.IsAnonymous {
 				newToken, err := auth.CreateToken(claims.UserOrAnonymousID, true, 30, cfg.JWTSecret)
 				if err == nil {
-					setGuestCookie(w, newToken, cfg)
+					SetGuestCookie(w, newToken)
 				}
 			} else {
 				newToken, err := auth.CreateToken(claims.UserOrAnonymousID, false, 14, cfg.JWTSecret)
 				if err == nil {
-					setGuestCookie(w, newToken, cfg)
+					SetGuestCookie(w, newToken)
 				}
 			}
 			// 3. Обновление last_activity для анонимов (с троттлингом)
@@ -95,7 +95,7 @@ func AuthMiddleware(cfg config.Config, s *storage.Storage) func(http.Handler) ht
 }
 
 // setGuestCookie устанавливает cookie с токеном (единая функция для всех случаев).
-func setGuestCookie(w http.ResponseWriter, token string, cfg config.Config) {
+func SetGuestCookie(w http.ResponseWriter, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "token",
 		Value:    token,
