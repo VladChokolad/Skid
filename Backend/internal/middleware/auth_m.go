@@ -100,7 +100,6 @@ func SetGuestCookie(w http.ResponseWriter, token string) {
 		Name:     "token",
 		Value:    token,
 		HttpOnly: true,
-		Secure:   true, // в продакшене обязательно, для локальной разработки можно сделать флаг
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 		MaxAge:   30 * 24 * 60 * 60, // 30 дней
