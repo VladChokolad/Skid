@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Профиль</title>
+</head>
+
+<body>
+    <h1>Профиль</h1>
+
+    <form id="profileForm">
+        <label for="email">Email:</label><br>
+        <input type="email" id="email" name="email" disabled><br><br>
+
+        <label for="name">Имя:</label><br>
+        <input type="text" id="name" name="name" required><br><br>
+
+        <label for="phone">Телефон:</label><br>
+        <input type="text" id="phone" name="phone"><br><br>
+
+        <label for="createdAt">Дата регистрации:</label><br>
+        <input type="text" id="createdAt" name="createdAt" disabled><br><br>
+
+        <button type="button" id="saveBtn">Сохранить</button>
+        <button type="button" id="deleteBtn">Удалить аккаунт</button>
+    </form>
+
+    <p id="message"></p>
+
+    <script>
+        const API_BASE = 'http://94.102.89.110:8080';
+
+        const emailInput = document.getElementById('email');
+        const nameInput = document.getElementById('name');
+        const phoneInput = document.getElementById('phone');
+        const createdAtInput = document.getElementById('createdAt');
+        const messageElement = document.getElementById('message');
+        const saveBtn = document.getElementById('saveBtn');
+        const deleteBtn = document.getElementById('deleteBtn');
+
+        function showMessage(text, isError) {
+            messageElement.style.color = isError ? 'red' : 'green';
+            messageElement.textContent = text;
+        }
+
+        async function loadProfile() {
+            try {
+                const response = await fetch(API_BASE + '/profile', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                if (response.status === 401) {
+                    window.location.href = 'auth/login.html';
+                    return;
+                }
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    showMessage('Ошибка загрузки: ' + (result.error || JSON.stringify(result)), true);
+                    return;
+                }
+
+                const user = result.data;
+                emailInput.value = user.email || '';
+                nameInput.value = user.name || '';
+                phoneInput.value = user.phone || '';
+                createdAtInput.value = user.createdAt ? new Date(user.createdAt).toLocaleDateString('ru-RU') : '';
+                showMessage('', false);
+            } catch (error) {
+                showMessage('Сетевая ошибка: ' + error.message, true);
+            }
+        }
+
+        async function saveProfile() {
+            const name = nameInput.value.trim();
+            if (!name) {
+                showMessage('Имя обязательно для заполнения', true);
+                return;
+            }
+
+            const phoneValue = phoneInput.value.trim();
+            const phone = phoneValue === '' ? null : phoneValue;
+
+            const data = { name: name, phone: phone };
+
+            try {
+                const response = await fetch(API_BASE + '/profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.status === 401) {
+                    window.location.href = 'auth/login.html';
+                    return;
+                }
+
+                if (!response.ok) {
+                    showMessage('Ошибка сохранения: ' + (result.error || JSON.stringify(result)), true);
+                    return;
+                }
+
+                showMessage('Данные успешно сохранены', false);
+            } catch (error) {
+                showMessage('Сетевая ошибка: ' + error.message, true);
+            }
+        }
+
+        async function deleteProfile() {
+            const confirmed = confirm('Вы уверены, что хотите удалить аккаунт? Это действие необратимо.');
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                const response = await fetch(API_BASE + '/profile', {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    showMessage('Ошибка удаления: ' + (result.error || JSON.stringify(result)), true);
+                    return;
+                }
+
+                window.location.href = 'auth/login.html';
+            } catch (error) {
+                showMessage('Сетевая ошибка: ' + error.message, true);
+            }
+        }
+
+        saveBtn.addEventListener('click', saveProfile);
+        deleteBtn.addEventListener('click', deleteProfile);
+
+        document.addEventListener('DOMContentLoaded', loadProfile);
+    </script>
+</body>
+
+</html>
