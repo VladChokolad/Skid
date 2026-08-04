@@ -100,7 +100,7 @@ func SetGuestCookie(w http.ResponseWriter, token string) {
 		Name:     "token",
 		Value:    token,
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   true,
 		SameSite: http.SameSiteNoneMode,
 		Path:     "/",
 		MaxAge:   30 * 24 * 60 * 60, // 30 дней
