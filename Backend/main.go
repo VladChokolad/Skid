@@ -36,7 +36,6 @@ func main() {
 	r.Use(middleware.CORSMiddleware(cfg))
 
 	// Публичные маршруты
-	r.HandleFunc("/echo", h.EchoHandler) //Тестовый - нужно удалить
 	r.Post("/auth/register", h.RegisterUserHandler)
 	r.Post("/auth/login", h.LoginUserHandler)
 

@@ -45,7 +45,7 @@ func (h *Handler) GetMyPartiesHandler(w http.ResponseWriter, r *http.Request) { 
 		sendErrorResponse(w, http.StatusBadRequest, "Не удалось получить данные")
 		return
 	}
-	sendSuccessResponse(w, http.StatusCreated, "Вот ваши тусовки!", map[string]interface{}{
+	sendSuccessResponse(w, http.StatusOK, "Вот ваши тусовки!", map[string]interface{}{
 		"data": parties_list,
 	})
 }
@@ -246,10 +246,15 @@ func (h *Handler) CreatePartyHandler(w http.ResponseWriter, r *http.Request) { /
 	}
 
 	// Создаём тусовку
+	name := ""
+	if req.Name != nil {
+		name = *req.Name
+	}
 	party := objects.Party{
-		Name:    *req.Name,
+		Name:    name,
 		OwnerID: userID,
 	}
+
 	if req.Description != nil {
 		party.Description = req.Description
 	}
@@ -300,7 +305,9 @@ func (h *Handler) UpdatePartyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Обновить
-	party.Name = *req.Name
+	if req.Name != nil {
+		party.Name = *req.Name
+	}
 	if req.Description != nil {
 		party.Description = req.Description
 	}
