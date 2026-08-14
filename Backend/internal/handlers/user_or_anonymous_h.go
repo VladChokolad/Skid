@@ -118,3 +118,15 @@ func (h *Handler) DeleteMyUserOrAnonymousHandler(w http.ResponseWriter, r *http.
 
 	sendSuccessResponse(w, http.StatusOK, "Аккаунт удалён", nil)
 }
+
+func (h *Handler) LogoutUserHandler(w http.ResponseWriter, r *http.Request) {
+	// Удалить cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:   "token",
+		Value:  "",
+		MaxAge: -1,
+		Path:   "/",
+	})
+
+	sendSuccessResponse(w, http.StatusOK, "Выход выполнен", nil)
+}

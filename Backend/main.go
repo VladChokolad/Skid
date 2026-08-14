@@ -36,13 +36,15 @@ func main() {
 	r.Use(middleware.CORSMiddleware(cfg))
 
 	// Публичные маршруты
-	r.HandleFunc("/echo", h.EchoHandler) //Тестовый - нужно удалить
 	r.Post("/auth/register", h.RegisterUserHandler)
 	r.Post("/auth/login", h.LoginUserHandler)
 
 	// Защищённые маршруты
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware(cfg, db))
+
+		r.Post("/auth/logout", h.LogoutUserHandler)
+
 		//профиль
 		r.Get("/profile", h.GetMyUserOrAnonymousHandler)
 		r.Put("/profile", h.UpdateMyUserOrAnonymousHandler)
