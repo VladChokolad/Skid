@@ -23,20 +23,22 @@
         <input type="text" id="createdAt" name="createdAt" disabled><br><br>
 
         <button type="button" id="saveBtn">Сохранить</button>
+        <button type="button" id="logoutBtn">Выйти</button>
         <button type="button" id="deleteBtn">Удалить аккаунт</button>
     </form>
 
     <p id="message"></p>
 
-    <script>
-        const API_BASE = 'https://skid-app.ru';
+    <script src="js/config.js"></script>
 
+    <script>
         const emailInput = document.getElementById('email');
         const nameInput = document.getElementById('name');
         const phoneInput = document.getElementById('phone');
         const createdAtInput = document.getElementById('createdAt');
         const messageElement = document.getElementById('message');
         const saveBtn = document.getElementById('saveBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
         const deleteBtn = document.getElementById('deleteBtn');
 
         function showMessage(text, isError) {
@@ -46,7 +48,7 @@
 
         async function loadProfile() {
             try {
-                const response = await fetch(API_BASE + '/profile', {
+                const response = await fetch(AppConfig.getEndpoint('/profile'), {
                     method: 'GET',
                     credentials: 'include'
                 });
@@ -89,7 +91,7 @@
             const data = { name: name, phone: phone };
 
             try {
-                const response = await fetch(API_BASE + '/profile', {
+                const response = await fetch(AppConfig.getEndpoint('/profile'), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -114,6 +116,11 @@
             }
         }
 
+        function logout() {
+            document.cookie = 'token=; Max-Age=0; Path=/; SameSite=None; Secure';
+            window.location.href = 'auth/login.html';
+        }
+
         async function deleteProfile() {
             const confirmed = confirm('Вы уверены, что хотите удалить аккаунт? Это действие необратимо.');
             if (!confirmed) {
@@ -121,7 +128,7 @@
             }
 
             try {
-                const response = await fetch(API_BASE + '/profile', {
+                const response = await fetch(AppConfig.getEndpoint('/profile'), {
                     method: 'DELETE',
                     credentials: 'include'
                 });
@@ -140,6 +147,7 @@
         }
 
         saveBtn.addEventListener('click', saveProfile);
+        logoutBtn.addEventListener('click', logout);
         deleteBtn.addEventListener('click', deleteProfile);
 
         document.addEventListener('DOMContentLoaded', loadProfile);

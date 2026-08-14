@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Тусовка</title>
+</head>
+
+<body>
+    <h1>Тусовка</h1>
+
+    <nav>
+        <a href="main.html">Главная</a> |
+        <a href="parties.html">Мои тусовки</a> |
+        <a href="profile.html">Профиль</a>
+    </nav>
+
+    <hr>
+
+    <!-- Информация о тусовке -->
+    <h2 id="partyTitle">Загрузка...</h2>
+    <p id="partyDescription"></p>
+    <p>Invite-код: <span id="partyInvite"></span></p>
+
+    <hr>
+
+    <h2>Участники</h2>
+    <div id="participants"></div>
+    <form id="addParticipantForm">
+        <label for="participantName">Имя:</label>
+        <input type="text" id="participantName" required>
+        <button type="submit">Добавить участника</button>
+    </form>
+
+    <hr>
+
+    <h2>Покупки</h2>
+    <div id="purchases"></div>
+    <form id="addPurchaseForm">
+        <label for="purchaseName">Название:</label>
+        <input type="text" id="purchaseName" required><br>
+        <label for="purchasePrice">Цена (руб):</label>
+        <input type="number" id="purchasePrice" step="0.01" required><br>
+        <label for="purchaseSplitType">Разбивка:</label>
+        <select id="purchaseSplitType">
+            <option value="0">Поровну всем</option>
+            <option value="1">Поровну выбранным</option>
+            <option value="2">Индивидуальные суммы</option>
+            <option value="3">Индивидуальные доли</option>
+        </select><br>
+        <div id="debtorsCheckboxes"></div>
+        <button type="submit">Добавить покупку</button>
+    </form>
+
+    <hr>
+
+    <h2>Платежи</h2>
+    <div id="payments"></div>
+    <form id="addPaymentForm">
+        <label for="paymentTo">Кому:</label>
+        <select id="paymentTo"></select><br>
+        <label for="paymentAmount">Сумма (руб):</label>
+        <input type="number" id="paymentAmount" step="0.01" required><br>
+        <label for="paymentNote">Комментарий:</label>
+        <input type="text" id="paymentNote"><br>
+        <button type="submit">Создать платёж</button>
+    </form>
+
+    <hr>
+
+    <h2>Сводка</h2>
+    <div id="settlements"></div>
+
+    <p id="message"></p>
+
+    <script src="js/config.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const partyID = params.get('id');
+
+        const messageElement = document.getElementById('message');
+
+        function showMessage(text, isError) {
+            messageElement.style.color = isError ? 'red' : 'green';
+            messageElement.textContent = text;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        function fmtMoney(value) {
+            const num = Number(value) || 0;
+            return num.toFixed(2) + ' ₽';
+        }
+
+        async function api(path, method, body) {
+            const options = {
+                method: method,
+                credentials: 'include'
+            };
+            if (body !== undefined) {
+                options.headers = { 'Content-Type': 'application/json' };
+                options.body = JSON.stringify(body);
+            }
+            const response = await fetch(AppConfig.getEndpoint(path), options);
+            let result = null;
+            try { result = await response.json(); } catch (e) { result = {}; }
+            if (!response.ok) {
+                throw new Error((result && result.error) || JSON.stringify(result));
+            }
+            return result;
+        }
+
+        // ---------- Загрузка всех данных ----------
+        async function loadAll() {
+            if (!partyID) {
+                showMessage('Не указан ID тусовки (?id=)', true);
+                return;
+            }
+            try {
+                await Promise.all([loadParty(), loadParticipants(), loadPurchases(), loadPayments(), loadSettlements()]);
+            } catch (error) {
+                showMessage('Ошибка: ' + error.message, true);
+            }
+        }
+
+        async function loadParty() {
+            try {
+                const result = await api('/parties/' + partyID, 'GET');
+                const party = result.data || result;
+                document.getElementById('partyTitle').textContent = party.name || party.Name || 'Тусовка';
+                document.getElementById('partyDescription').textContent =
+                    party.description || party.Description || '';
+                document.getElementById('partyInvite').textContent =
+                    party.inviteCode || party.InviteCode || '';
+            } catch (e) {
+                document.getElementById('partyTitle').textContent = 'Не удалось загрузить тусовку';
+            }
+        }
+
+        // ---------- Участники ----------
+        async function loadParticipants() {
+            try {
+                const result = await api('/parties/' + partyID + '/participants', 'GET');
+                const participants = result.data || [];
+                window._participants = participants;
+
+                // Список участников
+                let html = '<table border="1" cellpadding="5" cellspacing="0"><tr>' +
+                    '<th>Имя</th><th>Тип</th><th>Права</th></tr>';
+                for (const p of participants) {
+                    let type = 'Реальный';
+                    if (p.isPlaceholder || p.IsPlaceholder) type = 'Placeholder';
+                    else if (p.isAnonymous || p.IsAnonymous) type = 'Аноним';
+                    let rights = (p.isAdmin || p.IsAdmin) ? 'Админ' : 'Участник';
+                    html += '<tr><td>' + escapeHtml(p.name || p.Name) + '</td>' +
+                        '<td>' + type + '</td><td>' + rights + '</td></tr>';
+                }
+                html += '</table>';
+                document.getElementById('participants').innerHTML = html;
+
+                // Чекбоксы должников для формы покупки
+                let checks = '<p>Должники (для разбивки):</p>';
+                for (const p of participants) {
+                    checks += '<label><input type="checkbox" value="' + (p.id || p.ID) + '"> ' +
+                        escapeHtml(p.name || p.Name) + '</label><br>';
+                }
+                document.getElementById('debtorsCheckboxes').innerHTML = checks;
+
+                // Селект получателя платежа
+                let opts = '<option value="">-- выберите --</option>';
+                for (const p of participants) {
+                    opts += '<option value="' + (p.id || p.ID) + '">' +
+                        escapeHtml(p.name || p.Name) + '</option>';
+                }
+                document.getElementById('paymentTo').innerHTML = opts;
+            } catch (e) {
+                document.getElementById('participants').innerHTML = '<p>Ошибка: ' + escapeHtml(e.message) + '</p>';
+            }
+        }
+
+        // ---------- Покупки ----------
+        async function loadPurchases() {
+            try {
+                const result = await api('/parties/' + partyID + '/purchases', 'GET');
+                const purchases = result.data || [];
+
+                let html = '<table border="1" cellpadding="5" cellspacing="0"><tr>' +
+                    '<th>Название</th><th>Описание</th><th>Цена</th><th>Тип разбивки</th><th></th></tr>';
+                for (const p of purchases) {
+                    const splitNames = { 0: 'поровну всем', 1: 'поровну выбранным', 2: 'индив. суммы', 3: 'индив. доли' };
+                    const split = splitNames[p.splitType] || p.splitType;
+                    html += '<tr><td>' + escapeHtml(p.name) + '</td>' +
+                        '<td>' + escapeHtml(p.description || '') + '</td>' +
+                        '<td>' + fmtMoney(p.price) + '</td>' +
+                        '<td>' + escapeHtml(split) + '</td>' +
+                        '<td><button onclick="deletePurchase(' + p.id + ')">Удалить</button></td></tr>';
+                }
+                html += '</table>';
+                document.getElementById('purchases').innerHTML = html;
+            } catch (e) {
+                document.getElementById('purchases').innerHTML = '<p>Ошибка: ' + escapeHtml(e.message) + '</p>';
+            }
+        }
+
+        async function deletePurchase(purchaseID) {
+            if (!confirm('Удалить покупку?')) return;
+            try {
+                await api('/parties/' + partyID + '/purchases/' + purchaseID, 'DELETE');
+                showMessage('Покупка удалена', false);
+                loadPurchases();
+                loadSettlements();
+            } catch (e) {
+                showMessage('Ошибка: ' + e.message, true);
+            }
+        }
+
+        // ---------- Платежи ----------
+        async function loadPayments() {
+            try {
+                const result = await api('/parties/' + partyID + '/payments', 'GET');
+                const payments = result.data || [];
+
+                let html = '<table border="1" cellpadding="5" cellspacing="0"><tr>' +
+                    '<th>От</th><th>Кому</th><th>Сумма</th><th>Комментарий</th><th>Статус</th><th></th></tr>';
+                for (const pay of payments) {
+                    const fromName = getParticipantName(pay.fromParticipantID);
+                    const toName = getParticipantName(pay.toParticipantID);
+                    const isConfirmed = pay.isConfirmed !== undefined ? pay.isConfirmed : pay.IsConfirmed;
+                    html += '<tr><td>' + escapeHtml(fromName) + '</td>' +
+                        '<td>' + escapeHtml(toName) + '</td>' +
+                        '<td>' + fmtMoney(pay.amount) + '</td>' +
+                        '<td>' + escapeHtml(pay.note || '') + '</td>' +
+                        '<td>' + (isConfirmed ? 'подтверждён' : 'ожидает') + '</td>' +
+                        '<td>' + (isConfirmed ? '' : '<button onclick="confirmPayment(' + pay.id + ')">Подтвердить</button>') +
+                        '</td></tr>';
+                }
+                html += '</table>';
+                document.getElementById('payments').innerHTML = html;
+            } catch (e) {
+                document.getElementById('payments').innerHTML = '<p>Ошибка: ' + escapeHtml(e.message) + '</p>';
+            }
+        }
+
+        async function confirmPayment(paymentID) {
+            try {
+                await api('/parties/' + partyID + '/payments/' + paymentID + '/confirm', 'POST');
+                showMessage('Платёж подтверждён', false);
+                loadPayments();
+                loadSettlements();
+            } catch (e) {
+                showMessage('Ошибка: ' + e.message, true);
+            }
+        }
+
+        function getParticipantName(id) {
+            const list = window._participants || [];
+            for (const p of list) {
+                if ((p.id || p.ID) === id) return p.name || p.Name || ('#' + id);
+            }
+            return '#' + id;
+        }
+
+        // ---------- Сводка ----------
+        async function loadSettlements() {
+            try {
+                const result = await api('/parties/' + partyID + '/settlements', 'GET');
+                // Ответ: { Calculation: { Balances: [...], Settlements: [...] } }
+                const calc = (result.data && result.data.Calculation) || result.Calculation;
+                if (!calc) {
+                    document.getElementById('settlements').innerHTML = '<p>Нет данных для расчёта.</p>';
+                    return;
+                }
+
+                let html = '<h3>Балансы</h3>';
+                const balances = calc.Balances || [];
+                if (balances.length > 0) {
+                    html += '<table border="1" cellpadding="5" cellspacing="0"><tr>' +
+                        '<th>Участник</th><th>Заплатил</th><th>Должен</th><th>Баланс</th></tr>';
+                    for (const b of balances) {
+                        const bal = b.Balance !== undefined ? b.Balance : b.balance;
+                        const color = bal >= 0 ? 'green' : 'red';
+                        html += '<tr><td>' + escapeHtml(b.Name || b.name) + '</td>' +
+                            '<td>' + fmtMoney(b.Paid !== undefined ? b.Paid : b.paid) + '</td>' +
+                            '<td>' + fmtMoney(b.Owed !== undefined ? b.Owed : b.owed) + '</td>' +
+                            '<td style="color:' + color + '">' + fmtMoney(bal) + '</td></tr>';
+                    }
+                    html += '</table>';
+                }
+
+                html += '<h3>Рекомендуемые переводы</h3>';
+                const settlements = calc.Settlements || [];
+                if (settlements.length > 0) {
+                    html += '<table border="1" cellpadding="5" cellspacing="0"><tr>' +
+                        '<th>Кто платит</th><th>Кому</th><th>Сумма</th></tr>';
+                    for (const s of settlements) {
+                        html += '<tr><td>' + escapeHtml(getParticipantName(s.FromParticipantID)) + '</td>' +
+                            '<td>' + escapeHtml(getParticipantName(s.ToParticipantID)) + '</td>' +
+                            '<td>' + fmtMoney(s.Amount) + '</td></tr>';
+                    }
+                    html += '</table>';
+                } else {
+                    html += '<p>Все в расчёте!</p>';
+                }
+
+                document.getElementById('settlements').innerHTML = html;
+            } catch (e) {
+                document.getElementById('settlements').innerHTML = '<p>Ошибка: ' + escapeHtml(e.message) + '</p>';
+            }
+        }
+
+        // ---------- Обработчики форм ----------
+        document.getElementById('addParticipantForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const name = document.getElementById('participantName').value.trim();
+            if (!name) return;
+            try {
+                await api('/parties/' + partyID + '/participants', 'POST', { name: name });
+                showMessage('Участник добавлен', false);
+                this.reset();
+                loadParticipants();
+                loadSettlements();
+            } catch (err) {
+                showMessage('Ошибка: ' + err.message, true);
+            }
+        });
+
+        document.getElementById('addPurchaseForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const name = document.getElementById('purchaseName').value.trim();
+            const price = parseFloat(document.getElementById('purchasePrice').value);
+            const splitType = parseInt(document.getElementById('purchaseSplitType').value, 10);
+
+            const checkedDebtors = [];
+            document.querySelectorAll('#debtorsCheckboxes input[type=checkbox]:checked').forEach(function (cb) {
+                checkedDebtors.push(parseInt(cb.value, 10));
+            });
+
+            if (!name || !(price > 0)) {
+                showMessage('Заполните название и цену', true);
+                return;
+            }
+
+            const body = {
+                name: name,
+                price: price,
+                splitType: splitType,
+                debtors: checkedDebtors
+            };
+
+            try {
+                await api('/parties/' + partyID + '/purchases', 'POST', body);
+                showMessage('Покупка добавлена', false);
+                this.reset();
+                loadPurchases();
+                loadSettlements();
+            } catch (err) {
+                showMessage('Ошибка: ' + err.message, true);
+            }
+        });
+
+        document.getElementById('addPaymentForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const to = parseInt(document.getElementById('paymentTo').value, 10);
+            const amount = parseFloat(document.getElementById('paymentAmount').value);
+            const note = document.getElementById('paymentNote').value.trim();
+
+            if (!to || !(amount > 0)) {
+                showMessage('Выберите получателя и укажите сумму', true);
+                return;
+            }
+
+            try {
+                await api('/parties/' + partyID + '/payments', 'POST', {
+                    toParticipantID: to,
+                    amount: amount,
+                    note: note
+                });
+                showMessage('Платёж создан', false);
+                this.reset();
+                loadPayments();
+                loadSettlements();
+            } catch (err) {
+                showMessage('Ошибка: ' + err.message, true);
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', loadAll);
+    </script>
+</body>
+
+</html>

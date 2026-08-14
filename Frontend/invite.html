@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Приглашение</title>
+</head>
+
+<body>
+    <h1>Приглашение в тусовку</h1>
+
+    <nav>
+        <a href="main.html">Главная</a>
+    </nav>
+
+    <hr>
+
+    <div id="preview">
+        <p>Загрузка информации о тусовке...</p>
+    </div>
+
+    <p id="message"></p>
+
+    <script src="js/config.js"></script>
+    <script>
+        const preview = document.getElementById('preview');
+        const messageElement = document.getElementById('message');
+
+        // Получаем invite-код из query-параметра ?code=
+        const params = new URLSearchParams(window.location.search);
+        const inviteCode = params.get('code');
+
+        function showMessage(text, isError) {
+            messageElement.style.color = isError ? 'red' : 'green';
+            messageElement.textContent = text;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        // Предпросмотр тусовки
+        async function loadPreview() {
+            if (!inviteCode) {
+                preview.innerHTML = '<p>Invite-код не указан. Укажите его в ссылке: invite.html?code=XXX</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(AppConfig.getEndpoint('/invite/' + encodeURIComponent(inviteCode)), {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    preview.innerHTML = '<p>Ошибка: ' + escapeHtml(result.error || JSON.stringify(result)) + '</p>';
+                    return;
+                }
+
+                const data = result.data || result;
+                renderPreview(data);
+            } catch (error) {
+                preview.innerHTML = '<p>Сетевая ошибка: ' + escapeHtml(error.message) + '</p>';
+            }
+        }
+
+        function renderPreview(data) {
+            const partyName = data.partyName || '';
+            const placeholders = data.placeholders || [];
+
+            let html = '<h2>Тусовка: ' + escapeHtml(partyName) + '</h2>';
+
+            if (placeholders.length > 0) {
+                html += '<p>Можно занять свободное место участника:</p>';
+                html += '<div id="placeholders">';
+                for (const ph of placeholders) {
+                    html += '<label><input type="radio" name="placeholder" value="' + ph.id + '"> ' +
+                        escapeHtml(ph.name) + '</label><br>';
+                }
+                html += '</div>';
+            } else {
+                html += '<p>Свободных мест нет — присоединитесь новым участником.</p>';
+            }
+
+            html += '<br><button id="joinBtn">Присоединиться</button>';
+
+            preview.innerHTML = html;
+
+            document.getElementById('joinBtn').addEventListener('click', joinParty);
+        }
+
+        async function joinParty() {
+            const selected = document.querySelector('input[name="placeholder"]:checked');
+            const body = selected ? { placeholderID: parseInt(selected.value, 10) } : {};
+
+            try {
+                const response = await fetch(
+                    AppConfig.getEndpoint('/invite/' + encodeURIComponent(inviteCode) + '/join'),
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body),
+                        credentials: 'include'
+                    }
+                );
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    showMessage('Ошибка: ' + (result.error || JSON.stringify(result)), true);
+                    return;
+                }
+
+                const data = result.data || {};
+                const partyID = data.partyID || result.data;
+                showMessage('Вы присоединились к тусовке!', false);
+
+                if (partyID) {
+                    setTimeout(function () {
+                        window.location.href = 'party.html?id=' + partyID;
+                    }, 1000);
+                }
+            } catch (error) {
+                showMessage('Сетевая ошибка: ' + error.message, true);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadPreview);
+    </script>
+</body>
+
+</html>

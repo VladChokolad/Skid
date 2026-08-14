@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Мои тусовки</title>
+</head>
+
+<body>
+    <h1>Мои тусовки</h1>
+
+    <nav>
+        <a href="main.html">Главная</a> |
+        <a href="profile.html">Профиль</a> |
+        <a href="create_party.html">Создать тусовку</a>
+    </nav>
+
+    <hr>
+
+    <h2>Список тусовок</h2>
+    <div id="partyList"></div>
+    <p id="message"></p>
+
+    <script src="js/config.js"></script>
+    <script>
+        const partyList = document.getElementById('partyList');
+        const messageElement = document.getElementById('message');
+
+        function showMessage(text, isError) {
+            messageElement.style.color = isError ? 'red' : 'green';
+            messageElement.textContent = text;
+        }
+
+        async function loadParties() {
+            try {
+                const response = await fetch(AppConfig.getEndpoint('/parties'), {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                if (response.status === 401) {
+                    window.location.href = 'auth/login.html';
+                    return;
+                }
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    showMessage('Ошибка загрузки: ' + (result.error || JSON.stringify(result)), true);
+                    return;
+                }
+
+                let parties = result.data && result.data.data ? result.data.data : result.data;
+                if (!Array.isArray(parties)) {
+                    parties = [];
+                }
+                renderParties(parties);
+            } catch (error) {
+                showMessage('Сетевая ошибка: ' + error.message, true);
+            }
+        }
+
+        function renderParties(parties) {
+            if (!parties || parties.length === 0) {
+                partyList.innerHTML = '<p>У вас пока нет тусовок.</p>';
+                return;
+            }
+
+            let html = '<table border="1" cellpadding="6" cellspacing="0">';
+            html += '<tr><th>Название</th><th>Описание</th><th>Invite-код</th><th>Статус</th><th></th></tr>';
+
+            for (const p of parties) {
+                const name = p.name || p.Name || '';
+                const description = p.description || p.Description || '';
+                const inviteCode = p.inviteCode || p.InviteCode || '';
+                const isActive = p.isActive !== undefined ? p.isActive : (p.IsActive !== undefined ? p.IsActive : true);
+
+                html += '<tr>';
+                html += '<td>' + escapeHtml(name) + '</td>';
+                html += '<td>' + escapeHtml(description) + '</td>';
+                html += '<td>' + escapeHtml(inviteCode) + '</td>';
+                html += '<td>' + (isActive ? 'активна' : 'закрыта') + '</td>';
+                html += '<td><a href="party.html?id=' + (p.id || p.ID) + '">Открыть</a></td>';
+                html += '</tr>';
+            }
+
+            html += '</table>';
+
+            partyList.innerHTML = html;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        document.addEventListener('DOMContentLoaded', loadParties);
+    </script>
+</body>
+
+</html>

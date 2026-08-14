@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Создание тусовки</title>
+</head>
+
+<body>
+    <h2>Создание тусовки</h2>
+    <form id="createPartyForm">
+        <label for="name">Название:</label><br>
+        <input type="text" id="name" name="name" required><br>
+        <label for="description">Описание:</label><br>
+        <textarea id="description" name="description"></textarea><br>
+        <label for="partyImage">Ссылка на изображение:</label><br>
+        <input type="url" id="partyImage" name="partyImage"><br><br>
+        <button type="submit">Создать тусовку</button>
+    </form>
+    <p id="message"></p>
+    <script src="js/config.js"></script>
+    <script>
+        document.getElementById('createPartyForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const name = document.getElementById('name').value;
+            const description = document.getElementById('description').value;
+            const partyImage = document.getElementById('partyImage').value;
+            const messageElement = document.getElementById('message');
+
+            // Пустые необязательные поля отправляем как null (указатели в Go)
+            const body = {
+                name: name,
+                description: description.trim() ? description : null,
+                partyImage: partyImage.trim() ? partyImage : null
+            };
+
+            try {
+                const response = await fetch(AppConfig.getEndpoint('/parties'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body),
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    messageElement.style.color = 'green';
+                    messageElement.textContent = 'Успех: ' + (data.message || JSON.stringify(data));
+                    event.target.reset();
+                } else {
+                    messageElement.style.color = 'red';
+                    messageElement.textContent = 'Ошибка: ' + (data.error || JSON.stringify(data));
+                }
+            } catch (error) {
+                messageElement.style.color = 'red';
+                messageElement.textContent = 'Сетевая ошибка: ' + error.message;
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -257,11 +257,31 @@ func (h *Handler) CreatePartyHandler(w http.ResponseWriter, r *http.Request) { /
 		party.PartyImage = req.PartyImage
 	}
 
-	_, err := h.storage.CreateParty(party)
+	partyID, err := h.storage.CreateParty(party)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при создании тусовки")
 		return
 	}
+
+	//владич добавич калич
+	user, err := h.storage.GetUserByID(userID)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при получении данных")
+		return
+	}
+
+	owner := objects.Participant{
+		PartyID:           partyID,
+		UserOrAnonymousID: &userID,
+		Name:              user.Name,
+		IsAdmin:           true,
+	}
+
+	if _, err := h.storage.CreateParticipant(owner); err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при добавлении владельца")
+		return
+	}
+
 	sendSuccessResponse(w, http.StatusCreated, "тусовка создана!", nil)
 
 }

@@ -18,6 +18,8 @@
     </form>
     <p id="message"></p>
 
+    <script src="../js/config.js"></script>
+
     <script>
         document.getElementById('registerForm').addEventListener('submit', async function (event) {
             event.preventDefault();
@@ -28,7 +30,7 @@
             const messageElement = document.getElementById('message');
 
             try {
-                const response = await fetch('https://skid-app.ru/auth/register', {
+                const response = await fetch(AppConfig.getEndpoint('/auth/register'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

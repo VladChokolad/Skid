@@ -1,49 +1,81 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 
 <head>
-    <title>Форма Echo</title>
-    <script>
-        async function sendData() {
-            const firstName = document.getElementById('firstName').value;
-            const lastName = document.getElementById('lastName').value;
-
-            const data = {
-                firstName: firstName,
-                lastName: lastName
-            };
-
-            try {
-                const response = await fetch('https://skid-app.ru/echo', { // Убедитесь, что это правильный путь к EchoHandler
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
-                });
-
-                const result = await response.json();
-                document.getElementById('response').innerText = JSON.stringify(result, null, 2);
-            } catch (error) {
-                console.error('Ошибка:', error);
-                document.getElementById('response').innerText = 'Произошла ошибка при отправке данных.';
-            }
-        }
-    </script>
+    <meta charset="UTF-8">
+    <title>Skid — главная</title>
 </head>
 
 <body>
-    <h1>Отправка данных в EchoHandler</h1>
-    <form onsubmit="event.preventDefault(); sendData();">
-        <label for="firstName">Имя:</label><br>
-        <input type="text" id="firstName" name="firstName"><br><br>
-        <label for="lastName">Фамилия:</label><br>
-        <input type="text" id="lastName" name="lastName"><br><br>
-        <input type="submit" value="Отправить">
+    <h1>Skid — учёт общих трат</h1>
+
+    <nav>
+        <span id="authLinks">
+            <a href="auth/login.html">Войти</a> |
+            <a href="auth/register.html">Зарегистрироваться</a>
+        </span>
+        <span id="userLinks" style="display:none">
+            <a href="parties.html">Мои тусовки</a> |
+            <a href="profile.html">Профиль</a> |
+            <a href="create_party.html">Создать тусовку</a>
+        </span>
+    </nav>
+
+    <hr>
+
+    <h2>Присоединиться по приглашению</h2>
+    <form id="inviteForm">
+        <label for="inviteCode">Invite-код:</label>
+        <input type="text" id="inviteCode" placeholder="Например: ABC123" required>
+        <button type="submit">Перейти к тусовке</button>
     </form>
 
-    <h2>Ответ от EchoHandler:</h2>
-    <pre id="response"></pre>
+    <p id="message"></p>
+
+    <script src="js/config.js"></script>
+    <script>
+        const messageElement = document.getElementById('message');
+
+        function showMessage(text, isError) {
+            messageElement.style.color = isError ? 'red' : 'green';
+            messageElement.textContent = text;
+        }
+
+        // Проверяем, залогинен ли пользователь
+        async function checkAuth() {
+            try {
+                const response = await fetch(AppConfig.getEndpoint('/profile'), {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                if (response.ok && result.data && result.data.email) {
+                    // Зарегистрированный пользователь
+                    document.getElementById('userLinks').style.display = 'inline';
+                    document.getElementById('authLinks').style.display = 'none';
+                } else {
+                    // Аноним — показываем вход/регистрацию
+                    document.getElementById('authLinks').style.display = 'inline';
+                    document.getElementById('userLinks').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Ошибка проверки авторизации:', error);
+            }
+        }
+
+        document.getElementById('inviteForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+            const code = document.getElementById('inviteCode').value.trim();
+            if (!code) {
+                showMessage('Введите invite-код', true);
+                return;
+            }
+            window.location.href = 'invite.html?code=' + encodeURIComponent(code);
+        });
+
+        document.addEventListener('DOMContentLoaded', checkAuth);
+    </script>
 </body>
 
 </html>
