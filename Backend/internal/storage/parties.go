@@ -106,11 +106,11 @@ func (s *Storage) GetPartiesByUserID(userID int) ([]objects.Party, error) {
 	// Query возвращает много строк — в отличие от QueryRow
 	rows, err := s.db.Query(`
 		SELECT parties.id, parties.name, parties.description,
-               parties.party_image, parties.owner_id, parties.invite_code,
-               parties.created_at, parties.updated_at
-        FROM parties
-        INNER JOIN participants ON parties.id = participants.party_id
-        WHERE participants.user_or_anonymous_id = $1
+	              parties.party_image, parties.owner_id, parties.invite_code,
+	              parties.is_active, parties.created_at, parties.updated_at
+	       FROM parties
+	       INNER JOIN participants ON parties.id = participants.party_id
+	       WHERE participants.user_or_anonymous_id = $1
 		AND participants.is_anonymous = FALSE
 		`, userID)
 	if err != nil {
@@ -137,6 +137,7 @@ func (s *Storage) GetPartiesByUserID(userID int) ([]objects.Party, error) {
 			&Party.PartyImage,
 			&Party.OwnerID,
 			&Party.InviteCode,
+			&Party.IsActive,
 			&Party.CreatedAt,
 			&Party.UpdatedAt,
 		)
@@ -160,12 +161,12 @@ func (s *Storage) GetPartiesByUserID(userID int) ([]objects.Party, error) {
 func (s *Storage) GetPartiesByAnonID(anonID int) ([]objects.Party, error) {
 	rows, err := s.db.Query(`
 		SELECT parties.id, parties.name, parties.description,
-               parties.party_image, parties.owner_id, parties.invite_code,
-               parties.created_at, parties.updated_at
-        FROM parties
-        INNER JOIN participants ON parties.id = participants.party_id
-        WHERE participants.user_or_anonymous_id = $1
-        AND participants.is_anonymous = TRUE
+	              parties.party_image, parties.owner_id, parties.invite_code,
+	              parties.is_active, parties.created_at, parties.updated_at
+	       FROM parties
+	       INNER JOIN participants ON parties.id = participants.party_id
+	       WHERE participants.user_or_anonymous_id = $1
+	       AND participants.is_anonymous = TRUE
 		`, anonID)
 	if err != nil {
 		return nil, err
@@ -182,6 +183,7 @@ func (s *Storage) GetPartiesByAnonID(anonID int) ([]objects.Party, error) {
 			&party.PartyImage,
 			&party.OwnerID,
 			&party.InviteCode,
+			&party.IsActive,
 			&party.CreatedAt,
 			&party.UpdatedAt,
 		)
