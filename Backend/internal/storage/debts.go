@@ -1,8 +1,6 @@
 package storage
 
 import (
-	"fmt"
-
 	"github.com/VladChokolad/Skid/Backend/internal/objects"
 )
 
@@ -125,22 +123,12 @@ func (s *Storage) GetDebtsByPartyID(partyID int) ([]objects.Debt, error) {
 }
 
 // Принимает: id покупки
-// Делает: удаляет все долги связанные с этой покупкой
-// Возвращает: ошибку если долги не найдены или произошёл сбой
+// Делает: удаляет все долги связанные с этой покупкой (если их нет — не ошибка)
+// Возвращает: ошибку только при сбое запроса к БД
 func (s *Storage) DeleteDebtsByPurchaseID(purchaseID int) error {
-	result, err := s.db.Exec(`
-	DELETE FROM debts 
+	_, err := s.db.Exec(`
+	DELETE FROM debts
 	WHERE purchase_id = $1
 	`, purchaseID)
-	if err != nil {
-		return err
-	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rowsAffected == 0 {
-		return fmt.Errorf("долги не найдены")
-	}
-	return nil
+	return err
 }
