@@ -12,13 +12,14 @@ import (
 )
 
 type PurchaseRequest struct {
-	Name           string     `json:"name"`
-	Description    *string    `json:"description"`
-	PurchaseIconID *int       `json:"purchaseIconId"`
-	Price          float64    `json:"price"`
-	SplitType      int        `json:"splitType"`
-	DateofPurchase *time.Time `json:"dateOfPurchase"`
-	Debtors        []int      `json:"debtors"`
+	Name           string          `json:"name"`
+	Description    *string         `json:"description"`
+	PurchaseIconID *int            `json:"purchaseIconId"`
+	Price          float64         `json:"price"`
+	SplitType      int             `json:"splitType"`
+	DateofPurchase *time.Time      `json:"dateOfPurchase"`
+	Debtors        []int           `json:"debtors"`       // id участников — для splitType 0/1
+	DebtorAmounts  map[int]float64 `json:"debtorAmounts"` // id участника -> сумма/вес — для splitType 2/3
 }
 
 func (h *Handler) EchoHandler(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +62,20 @@ func (h *Handler) CreatePurchaseHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// 6. Создать покупку
+	// 6. Посчитать долги участников (до создания покупки — чтобы не создавать
+	// покупку без корректных долгов при ошибке валидации разбивки)
+	participants, err := h.storage.GetParticipantsByPartyID(party.ID)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при получении участников")
+		return
+	}
+	debts, err := buildDebts(0, req.Price, req.SplitType, participants, req.Debtors, req.DebtorAmounts)
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// 7. Создать покупку
 	purchase := objects.Purchase{
 		PartyID:        party.ID,
 		BuyerID:        participant.ID,
@@ -77,6 +91,15 @@ func (h *Handler) CreatePurchaseHandler(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при создании покупки")
 		return
+	}
+
+	// 8. Сохранить долги
+	for _, d := range debts {
+		d.PurchaseID = purchaseID
+		if _, err := h.storage.CreateDebt(d); err != nil {
+			sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при сохранении долгов")
+			return
+		}
 	}
 
 	sendSuccessResponse(w, http.StatusCreated, "Покупка создана", map[string]int{"id": purchaseID})
@@ -126,7 +149,19 @@ func (h *Handler) UpdatePurchaseHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// 6. Обновить покупку (PartyID и BuyerID сохраняем из исходной записи)
+	// 6. Пересчитать долги под новую цену/тип разбивки
+	participants, err := h.storage.GetParticipantsByPartyID(party.ID)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при получении участников")
+		return
+	}
+	debts, err := buildDebts(purchaseID, req.Price, req.SplitType, participants, req.Debtors, req.DebtorAmounts)
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// 7. Обновить покупку (PartyID и BuyerID сохраняем из исходной записи)
 	purchase := objects.Purchase{
 		ID:             purchaseID,
 		PartyID:        existing.PartyID,
@@ -142,6 +177,18 @@ func (h *Handler) UpdatePurchaseHandler(w http.ResponseWriter, r *http.Request) 
 	if err := h.storage.UpdatePurchase(purchase); err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при обновлении покупки")
 		return
+	}
+
+	// 8. Заменить старые долги новыми
+	if err := h.storage.DeleteDebtsByPurchaseID(purchaseID); err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при обновлении долгов")
+		return
+	}
+	for _, d := range debts {
+		if _, err := h.storage.CreateDebt(d); err != nil {
+			sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при сохранении долгов")
+			return
+		}
 	}
 
 	sendSuccessResponse(w, http.StatusOK, "Покупка обновлена", nil)
@@ -174,7 +221,11 @@ func (h *Handler) DeletePurchaseHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// 4. Удалить покупку
+	// 4. Сначала удалить связанные долги (FK на purchase_id), потом саму покупку
+	if err := h.storage.DeleteDebtsByPurchaseID(purchaseID); err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при удалении долгов")
+		return
+	}
 	if err := h.storage.DeletePurchase(purchaseID); err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при удалении покупки")
 		return
