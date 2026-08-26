@@ -41,6 +41,7 @@
                 if (response.ok) {
                     messageElement.style.color = 'green';
                     messageElement.textContent = 'Success: ' + (data.message || JSON.stringify(data));
+                    window.location.href = '../main.html';
                 } else {
                     messageElement.style.color = 'red';
                     messageElement.textContent = 'Error: ' + (data.error || JSON.stringify(data));
