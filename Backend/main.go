@@ -57,14 +57,23 @@ func main() {
 		r.Post("/invite/{inviteCode}/join", h.JoinPartyHandler)
 
 		r.Route("/parties/{partyID}", func(r chi.Router) {
+			// Требуем членство в тусовке для всех вложенных маршрутов
+			r.Use(middleware.RequirePartyMember(db))
+
 			//тусовка
 			r.Get("/", h.GetPartyHandler)
-			r.Put("/", h.UpdatePartyHandler)
-			r.Delete("/", h.DeletePartyHandler)
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequirePartyOwner())
+				r.Put("/", h.UpdatePartyHandler)
+				r.Delete("/", h.DeletePartyHandler)
+			})
 			//Участники
 			r.Get("/participants", h.GetParticipantsHandler)
-			r.Post("/participants", h.CreateParticipantHandler)
-			r.Delete("/participants/{participantID}", h.DeleteParticipantHandler)
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequirePartyAdmin())
+				r.Post("/participants", h.CreateParticipantHandler)
+				r.Delete("/participants/{participantID}", h.DeleteParticipantHandler)
+			})
 			//траты
 			r.Get("/purchases", h.GetPurchasesHandler)
 			r.Post("/purchases", h.CreatePurchaseHandler)

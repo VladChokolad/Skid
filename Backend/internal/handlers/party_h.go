@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
@@ -51,17 +50,8 @@ func (h *Handler) GetMyPartiesHandler(w http.ResponseWriter, r *http.Request) { 
 }
 
 func (h *Handler) GetPartyHandler(w http.ResponseWriter, r *http.Request) {
-	partyID, err := strconv.Atoi(chi.URLParam(r, "partyID"))
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Неверный ID тусовки")
-		return
-	}
-
-	party, err := h.storage.GetPartyByID(partyID)
-	if err != nil {
-		sendErrorResponse(w, http.StatusNotFound, "Тусовка не найдена")
-		return
-	}
+	// Тусовка и членство уже проверены RequirePartyMember
+	party, _ := middleware.PartyFromContext(r.Context())
 
 	sendSuccessResponse(w, http.StatusOK, "Тусовка", party)
 }
@@ -292,30 +282,8 @@ func (h *Handler) CreatePartyHandler(w http.ResponseWriter, r *http.Request) { /
 }
 
 func (h *Handler) UpdatePartyHandler(w http.ResponseWriter, r *http.Request) {
-	// partyID из URL
-	partyID, err := strconv.Atoi(chi.URLParam(r, "partyID"))
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Неверный ID тусовки")
-		return
-	}
-
-	// Только зарегистрированные
-	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
-	if !ok {
-		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
-		return
-	}
-
-	// Проверить что пользователь владелец
-	party, err := h.storage.GetPartyByID(partyID)
-	if err != nil {
-		sendErrorResponse(w, http.StatusNotFound, "Тусовка не найдена")
-		return
-	}
-	if party.OwnerID != userID {
-		sendErrorResponse(w, http.StatusForbidden, "Только владелец может изменять тусовку")
-		return
-	}
+	// Тусовка и права владельца уже проверены RequirePartyMember + RequirePartyOwner
+	party, _ := middleware.PartyFromContext(r.Context())
 
 	// Декодировать тело
 	var req PartyRequest
@@ -344,33 +312,11 @@ func (h *Handler) UpdatePartyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeletePartyHandler(w http.ResponseWriter, r *http.Request) {
-	// partyID из URL
-	partyID, err := strconv.Atoi(chi.URLParam(r, "partyID"))
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Неверный ID тусовки")
-		return
-	}
-
-	// Только зарегистрированные
-	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
-	if !ok {
-		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
-		return
-	}
-
-	// Проверить что пользователь владелец
-	party, err := h.storage.GetPartyByID(partyID)
-	if err != nil {
-		sendErrorResponse(w, http.StatusNotFound, "Тусовка не найдена")
-		return
-	}
-	if party.OwnerID != userID {
-		sendErrorResponse(w, http.StatusForbidden, "Только владелец может удалять тусовку")
-		return
-	}
+	// Тусовка и права владельца уже проверены RequirePartyMember + RequirePartyOwner
+	party, _ := middleware.PartyFromContext(r.Context())
 
 	// Удалить
-	if err := h.storage.DeleteParty(partyID); err != nil {
+	if err := h.storage.DeleteParty(party.ID); err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при удалении тусовки")
 		return
 	}

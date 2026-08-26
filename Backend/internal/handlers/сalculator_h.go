@@ -2,35 +2,31 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
-
-	"github.com/go-chi/chi/v5"
 
 	"github.com/VladChokolad/Skid/Backend/internal/calculator"
+	"github.com/VladChokolad/Skid/Backend/internal/middleware"
 )
 
 func (h *Handler) GetSettlementsHandler(w http.ResponseWriter, r *http.Request) {
-	partyID, err := strconv.Atoi(chi.URLParam(r, "partyID"))
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Неверный ID тусовки")
-		return
-	}
-	payments, err := h.storage.GetPaymentsByPartyID(partyID)
+	// Членство уже проверено RequirePartyMember
+	party, _ := middleware.PartyFromContext(r.Context())
+
+	payments, err := h.storage.GetPaymentsByPartyID(party.ID)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Невозможно получить данные из базы данных")
 		return
 	}
-	purchases, err := h.storage.GetPurchasesByPartyID(partyID)
+	purchases, err := h.storage.GetPurchasesByPartyID(party.ID)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Невозможно получить данные из базы данных")
 		return
 	}
-	participants, err := h.storage.GetParticipantsByPartyID(partyID)
+	participants, err := h.storage.GetParticipantsByPartyID(party.ID)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Невозможно получить данные из базы данных")
 		return
 	}
-	debts, err := h.storage.GetDebtsByPartyID(partyID)
+	debts, err := h.storage.GetDebtsByPartyID(party.ID)
 	if err != nil {
 		sendErrorResponse(w, http.StatusBadRequest, "Невозможно получить данные из базы данных")
 		return

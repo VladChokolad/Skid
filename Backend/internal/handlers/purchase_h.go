@@ -28,15 +28,10 @@ func (h *Handler) EchoHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetPurchasesHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Получить partyID из URL
-	partyID, err := strconv.Atoi(chi.URLParam(r, "partyID"))
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Неверный ID тусовки")
-		return
-	}
+	// Членство уже проверено RequirePartyMember
+	party, _ := middleware.PartyFromContext(r.Context())
 
-	// 2. Получить покупки из БД
-	purchases, err := h.storage.GetPurchasesByPartyID(partyID)
+	purchases, err := h.storage.GetPurchasesByPartyID(party.ID)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при получении покупок")
 		return
@@ -46,30 +41,71 @@ func (h *Handler) GetPurchasesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreatePurchaseHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. partyID из URL
-	partyID, err := strconv.Atoi(chi.URLParam(r, "partyID"))
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Неверный ID тусовки")
+	// Членство уже проверено RequirePartyMember
+	party, participant, _ := middleware.PartyAndParticipantFromContext(r.Context())
+
+	// Декодировать тело
+	var req PurchaseRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Неверный формат данных")
 		return
 	}
 
-	// 2. userID из контекста
-	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
-	if !ok {
-		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
+	// 5. Валидация
+	if req.Name == "" {
+		sendErrorResponse(w, http.StatusBadRequest, "Название обязательно")
+		return
+	}
+	if req.Price <= 0 {
+		sendErrorResponse(w, http.StatusBadRequest, "Цена должна быть больше нуля")
 		return
 	}
 
-	// 3. Найти participant
-	isAnon := middleware.GetIsAnonymousFromContext(r.Context())
-	var participant objects.Participant
-	if isAnon {
-		participant, err = h.storage.GetParticipantByAnonAndPartyID(userID, partyID)
-	} else {
-		participant, err = h.storage.GetParticipantByUserAndPartyID(userID, partyID)
+	// 6. Создать покупку
+	purchase := objects.Purchase{
+		PartyID:        party.ID,
+		BuyerID:        participant.ID,
+		Name:           req.Name,
+		Description:    req.Description,
+		PurchaseIconID: req.PurchaseIconID,
+		Price:          req.Price,
+		SplitType:      req.SplitType,
+		DateofPurchase: req.DateofPurchase,
 	}
+
+	purchaseID, err := h.storage.CreatePurchase(purchase)
 	if err != nil {
-		sendErrorResponse(w, http.StatusForbidden, "Вы не участник этой тусовки")
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при создании покупки")
+		return
+	}
+
+	sendSuccessResponse(w, http.StatusCreated, "Покупка создана", map[string]int{"id": purchaseID})
+}
+
+func (h *Handler) UpdatePurchaseHandler(w http.ResponseWriter, r *http.Request) {
+	// Членство уже проверено RequirePartyMember
+	party, participant, _ := middleware.PartyAndParticipantFromContext(r.Context())
+
+	// 1. purchaseID из URL
+	purchaseID, err := strconv.Atoi(chi.URLParam(r, "purchaseID"))
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Неверный ID покупки")
+		return
+	}
+
+	// 2. Убедиться что покупка принадлежит этой тусовке
+	existing, err := h.storage.GetPurchaseByID(purchaseID)
+	if err != nil {
+		sendErrorResponse(w, http.StatusNotFound, "Покупка не найдена")
+		return
+	}
+	if existing.PartyID != party.ID {
+		sendErrorResponse(w, http.StatusForbidden, "Покупка не принадлежит этой тусовке")
+		return
+	}
+	// 3. Изменять может только автор покупки или админ/владелец тусовки
+	if existing.BuyerID != participant.ID && !participant.IsAdmin {
+		sendErrorResponse(w, http.StatusForbidden, "Изменить покупку может только автор или администратор тусовки")
 		return
 	}
 
@@ -90,55 +126,11 @@ func (h *Handler) CreatePurchaseHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// 6. Создать покупку
-	purchase := objects.Purchase{
-		PartyID:        partyID,
-		BuyerID:        participant.ID,
-		Name:           req.Name,
-		Description:    req.Description,
-		PurchaseIconID: req.PurchaseIconID,
-		Price:          req.Price,
-		SplitType:      req.SplitType,
-		DateofPurchase: req.DateofPurchase,
-	}
-
-	purchaseID, err := h.storage.CreatePurchase(purchase)
-	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при создании покупки")
-		return
-	}
-
-	sendSuccessResponse(w, http.StatusCreated, "Покупка создана", map[string]int{"id": purchaseID})
-}
-
-func (h *Handler) UpdatePurchaseHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. purchaseID из URL
-	purchaseID, err := strconv.Atoi(chi.URLParam(r, "purchaseID"))
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Неверный ID покупки")
-		return
-	}
-
-	// 2. Декодировать тело
-	var req PurchaseRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Неверный формат данных")
-		return
-	}
-
-	// 3. Валидация
-	if req.Name == "" {
-		sendErrorResponse(w, http.StatusBadRequest, "Название обязательно")
-		return
-	}
-	if req.Price <= 0 {
-		sendErrorResponse(w, http.StatusBadRequest, "Цена должна быть больше нуля")
-		return
-	}
-
-	// 4. Обновить покупку
+	// 6. Обновить покупку (PartyID и BuyerID сохраняем из исходной записи)
 	purchase := objects.Purchase{
 		ID:             purchaseID,
+		PartyID:        existing.PartyID,
+		BuyerID:        existing.BuyerID,
 		Name:           req.Name,
 		Description:    req.Description,
 		PurchaseIconID: req.PurchaseIconID,
@@ -156,6 +148,9 @@ func (h *Handler) UpdatePurchaseHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) DeletePurchaseHandler(w http.ResponseWriter, r *http.Request) {
+	// Членство уже проверено RequirePartyMember
+	party, participant, _ := middleware.PartyAndParticipantFromContext(r.Context())
+
 	// 1. purchaseID из URL
 	purchaseID, err := strconv.Atoi(chi.URLParam(r, "purchaseID"))
 	if err != nil {
@@ -163,7 +158,23 @@ func (h *Handler) DeletePurchaseHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// 2. Удалить покупку
+	// 2. Убедиться что покупка принадлежит этой тусовке
+	existing, err := h.storage.GetPurchaseByID(purchaseID)
+	if err != nil {
+		sendErrorResponse(w, http.StatusNotFound, "Покупка не найдена")
+		return
+	}
+	if existing.PartyID != party.ID {
+		sendErrorResponse(w, http.StatusForbidden, "Покупка не принадлежит этой тусовке")
+		return
+	}
+	// 3. Удалить может только автор покупки или админ/владелец тусовки
+	if existing.BuyerID != participant.ID && !participant.IsAdmin {
+		sendErrorResponse(w, http.StatusForbidden, "Удалить покупку может только автор или администратор тусовки")
+		return
+	}
+
+	// 4. Удалить покупку
 	if err := h.storage.DeletePurchase(purchaseID); err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при удалении покупки")
 		return

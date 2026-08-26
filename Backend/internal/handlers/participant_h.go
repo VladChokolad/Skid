@@ -15,13 +15,10 @@ type ParticipantRequest struct {
 }
 
 func (h *Handler) GetParticipantsHandler(w http.ResponseWriter, r *http.Request) {
-	partyID, err := strconv.Atoi(chi.URLParam(r, "partyID"))
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Неверный ID тусовки")
-		return
-	}
+	// Членство уже проверено RequirePartyMember
+	party, _ := middleware.PartyFromContext(r.Context())
 
-	participants, err := h.storage.GetParticipantsByPartyID(partyID)
+	participants, err := h.storage.GetParticipantsByPartyID(party.ID)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при получении участников")
 		return
@@ -31,32 +28,8 @@ func (h *Handler) GetParticipantsHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *Handler) CreateParticipantHandler(w http.ResponseWriter, r *http.Request) {
-	// Только админ или владелец может добавлять placeholder
-	partyID, err := strconv.Atoi(chi.URLParam(r, "partyID"))
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Неверный ID тусовки")
-		return
-	}
-
-	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
-	if !ok {
-		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
-		return
-	}
-
-	// Проверить что пользователь участник и имеет права
-	participant, err := h.storage.GetParticipantByUserAndPartyID(userID, partyID)
-	if err != nil {
-		sendErrorResponse(w, http.StatusForbidden, "Вы не участник этой тусовки")
-		return
-	}
-	if !participant.IsAdmin {
-		party, err := h.storage.GetPartyByID(partyID)
-		if err != nil || party.OwnerID != userID {
-			sendErrorResponse(w, http.StatusForbidden, "Недостаточно прав")
-			return
-		}
-	}
+	// Права админа/владельца уже проверены RequirePartyMember + RequirePartyAdmin
+	party, _ := middleware.PartyFromContext(r.Context())
 
 	var req ParticipantRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -70,7 +43,7 @@ func (h *Handler) CreateParticipantHandler(w http.ResponseWriter, r *http.Reques
 
 	// Создаём placeholder
 	placeholder := objects.Participant{
-		PartyID:       partyID,
+		PartyID:       party.ID,
 		Name:          req.Name,
 		IsPlaceholder: true,
 	}
@@ -85,11 +58,8 @@ func (h *Handler) CreateParticipantHandler(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *Handler) DeleteParticipantHandler(w http.ResponseWriter, r *http.Request) {
-	partyID, err := strconv.Atoi(chi.URLParam(r, "partyID"))
-	if err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Неверный ID тусовки")
-		return
-	}
+	// Права админа/владельца уже проверены RequirePartyMember + RequirePartyAdmin
+	party, _ := middleware.PartyFromContext(r.Context())
 
 	participantID, err := strconv.Atoi(chi.URLParam(r, "participantID"))
 	if err != nil {
@@ -97,27 +67,14 @@ func (h *Handler) DeleteParticipantHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	userID, ok := middleware.GetUserOrAnonymousIDFromContext(r.Context())
-	if !ok {
-		sendErrorResponse(w, http.StatusUnauthorized, "Не авторизован")
-		return
-	}
-
-	// Проверить права — только владелец или админ
-	party, err := h.storage.GetPartyByID(partyID)
+	// Убедиться что удаляемый участник принадлежит именно этой тусовке
+	target, err := h.storage.GetParticipantByID(participantID)
 	if err != nil {
-		sendErrorResponse(w, http.StatusNotFound, "Тусовка не найдена")
+		sendErrorResponse(w, http.StatusNotFound, "Участник не найден")
 		return
 	}
-
-	participant, err := h.storage.GetParticipantByUserAndPartyID(userID, partyID)
-	if err != nil {
-		sendErrorResponse(w, http.StatusForbidden, "Вы не участник этой тусовки")
-		return
-	}
-
-	if party.OwnerID != userID && !participant.IsAdmin {
-		sendErrorResponse(w, http.StatusForbidden, "Недостаточно прав")
+	if target.PartyID != party.ID {
+		sendErrorResponse(w, http.StatusForbidden, "Участник не принадлежит этой тусовке")
 		return
 	}
 
