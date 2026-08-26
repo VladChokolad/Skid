@@ -97,8 +97,12 @@ func (h *Handler) ConfirmPaymentHandler(w http.ResponseWriter, r *http.Request) 
 		sendErrorResponse(w, http.StatusForbidden, "Платёж не принадлежит этой тусовке")
 		return
 	}
-	if payment.ToParticipantID != participant.ID {
-		sendErrorResponse(w, http.StatusForbidden, "Только получатель может подтвердить платёж")
+	// Подтвердить может адресат платежа, админ или владелец тусовки
+	userID, _ := middleware.GetUserOrAnonymousIDFromContext(r.Context())
+	isRecipient := payment.ToParticipantID == participant.ID
+	isAdminOrOwner := participant.IsAdmin || party.OwnerID == userID
+	if !isRecipient && !isAdminOrOwner {
+		sendErrorResponse(w, http.StatusForbidden, "Подтвердить платёж может только получатель, админ или владелец тусовки")
 		return
 	}
 
