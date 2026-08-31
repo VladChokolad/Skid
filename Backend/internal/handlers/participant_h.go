@@ -54,6 +54,9 @@ func (h *Handler) CreateParticipantHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Пересчитать покупки "поровну всем" на новый состав тусовки — не фатально для запроса
+	_ = h.recalcEqualSplitDebts(party.ID)
+
 	sendSuccessResponse(w, http.StatusCreated, "Участник добавлен", map[string]int{"id": placeholderID})
 }
 
@@ -78,10 +81,20 @@ func (h *Handler) DeleteParticipantHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Сначала снести долги участника (FK на participant_id без каскада —
+	// иначе удаление участника с существующими долгами упадёт с ошибкой)
+	if err := h.storage.DeleteDebtsByParticipantID(participantID); err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при удалении долгов участника")
+		return
+	}
+
 	if err := h.storage.DeleteParticipant(participantID); err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при удалении участника")
 		return
 	}
+
+	// Пересчитать покупки "поровну всем" на новый состав тусовки — не фатально для запроса
+	_ = h.recalcEqualSplitDebts(party.ID)
 
 	sendSuccessResponse(w, http.StatusOK, "Участник удалён", nil)
 }

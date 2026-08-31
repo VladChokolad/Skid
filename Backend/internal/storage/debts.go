@@ -132,3 +132,14 @@ func (s *Storage) DeleteDebtsByPurchaseID(purchaseID int) error {
 	`, purchaseID)
 	return err
 }
+
+// Принимает: id участника
+// Делает: удаляет все долги этого участника по всем покупкам (если их нет — не ошибка)
+// Возвращает: ошибку только при сбое запроса к БД
+func (s *Storage) DeleteDebtsByParticipantID(participantID int) error {
+	_, err := s.db.Exec(`
+	DELETE FROM debts
+	WHERE participant_id = $1
+	`, participantID)
+	return err
+}

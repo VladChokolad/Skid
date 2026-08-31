@@ -36,6 +36,7 @@
 
     <h2>Покупки</h2>
     <div id="purchases"></div>
+    <h3 id="purchaseFormTitle">Добавить покупку</h3>
     <form id="addPurchaseForm">
         <label for="purchaseName">Название:</label>
         <input type="text" id="purchaseName" required><br>
@@ -48,8 +49,10 @@
             <option value="2">Индивидуальные суммы</option>
             <option value="3">Индивидуальные доли</option>
         </select><br>
+        <p id="debtorsHint"></p>
         <div id="debtorsCheckboxes"></div>
-        <button type="submit">Добавить покупку</button>
+        <button type="submit" id="purchaseSubmitBtn">Добавить покупку</button>
+        <button type="button" id="purchaseCancelBtn" onclick="cancelEditPurchase()" style="display:none">Отмена</button>
     </form>
 
     <hr>
@@ -79,6 +82,9 @@
         const partyID = params.get('id');
 
         const messageElement = document.getElementById('message');
+
+        // id редактируемой покупки — null, если сейчас идёт создание новой
+        let editingPurchaseID = null;
 
         function showMessage(text, isError) {
             messageElement.style.color = isError ? 'red' : 'green';
@@ -121,7 +127,9 @@
                 return;
             }
             try {
-                await Promise.all([loadParty(), loadParticipants(), loadPurchases(), loadPayments(), loadSettlements()]);
+                // Сначала тусовка/участники/"кто я" — от них зависит рендер покупок и платежей
+                await Promise.all([loadParty(), loadParticipants(), loadMe()]);
+                await Promise.all([loadPurchases(), loadPayments(), loadSettlements()]);
             } catch (error) {
                 showMessage('Ошибка: ' + error.message, true);
             }
@@ -131,6 +139,7 @@
             try {
                 const result = await api('/parties/' + partyID, 'GET');
                 const party = result.data || result;
+                window._party = party;
                 document.getElementById('partyTitle').textContent = party.name || party.Name || 'Тусовка';
                 document.getElementById('partyDescription').textContent =
                     party.description || party.Description || '';
@@ -139,6 +148,48 @@
             } catch (e) {
                 document.getElementById('partyTitle').textContent = 'Не удалось загрузить тусовку';
             }
+        }
+
+        // ---------- "Кто я" — нужно, чтобы понимать, что можно подтверждать/редактировать ----------
+        async function loadMe() {
+            try {
+                const result = await api('/profile', 'GET');
+                const data = result.data || result;
+                // У анонимов в ответе нет email — так отличаем зарегистрированного пользователя от гостя
+                const isAnon = !('email' in data);
+                window._me = { id: data.id, isAnon: isAnon };
+            } catch (e) {
+                window._me = null;
+            }
+        }
+
+        function findMyParticipant() {
+            if (!window._me) return null;
+            const list = window._participants || [];
+            for (const p of list) {
+                const pUserID = p.userOrAnonymousID != null ? p.userOrAnonymousID : p.UserOrAnonymousID;
+                const pIsAnon = !!(p.isAnonymous || p.IsAnonymous);
+                if (pUserID === window._me.id && pIsAnon === window._me.isAnon) return p;
+            }
+            return null;
+        }
+
+        function canConfirmPayment(pay) {
+            // Если не смогли определить "кто я" — не скрываем кнопку, пусть решает бэкенд
+            if (!window._me) return true;
+            const myParticipant = findMyParticipant();
+            if (!myParticipant) return true;
+
+            const myParticipantID = myParticipant.id || myParticipant.ID;
+            if (pay.toParticipantID === myParticipantID) return true;
+            if (myParticipant.isAdmin || myParticipant.IsAdmin) return true;
+
+            const party = window._party;
+            if (party && !window._me.isAnon) {
+                const ownerID = party.ownerID != null ? party.ownerID : party.OwnerID;
+                if (ownerID === window._me.id) return true;
+            }
+            return false;
         }
 
         // ---------- Участники ----------
@@ -162,13 +213,18 @@
                 html += '</table>';
                 document.getElementById('participants').innerHTML = html;
 
-                // Чекбоксы должников для формы покупки
-                let checks = '<p>Должники (для разбивки):</p>';
+                // Чекбоксы должников для формы покупки + поля сумм/долей для типов 2/3
+                let checks = '';
                 for (const p of participants) {
-                    checks += '<label><input type="checkbox" value="' + (p.id || p.ID) + '"> ' +
-                        escapeHtml(p.name || p.Name) + '</label><br>';
+                    const pid = p.id || p.ID;
+                    checks += '<div class="debtor-row" style="margin-bottom:4px">' +
+                        '<label><input type="checkbox" value="' + pid + '"> ' +
+                        escapeHtml(p.name || p.Name) + '</label> ' +
+                        '<input type="number" step="0.01" class="debtor-amount" style="width:110px;display:none">' +
+                        '</div>';
                 }
                 document.getElementById('debtorsCheckboxes').innerHTML = checks;
+                updateDebtorsVisibility();
 
                 // Селект получателя платежа
                 let opts = '<option value="">-- выберите --</option>';
@@ -182,11 +238,45 @@
             }
         }
 
+        // ---------- Разбивка покупки (показ/скрытие полей под выбранный splitType) ----------
+        function updateDebtorsVisibility() {
+            const splitType = parseInt(document.getElementById('purchaseSplitType').value, 10);
+            const rows = document.querySelectorAll('#debtorsCheckboxes .debtor-row');
+
+            rows.forEach(function (row) {
+                const amountInput = row.querySelector('input[type=number]');
+                if (splitType === 2) {
+                    amountInput.style.display = '';
+                    amountInput.placeholder = 'сумма, руб';
+                } else if (splitType === 3) {
+                    amountInput.style.display = '';
+                    amountInput.placeholder = 'доля (вес)';
+                } else {
+                    amountInput.style.display = 'none';
+                }
+            });
+
+            document.getElementById('debtorsCheckboxes').style.display = (splitType === 0) ? 'none' : '';
+
+            const hint = document.getElementById('debtorsHint');
+            if (splitType === 0) {
+                hint.textContent = 'Сумма будет поделена поровну между всеми участниками тусовки.';
+            } else if (splitType === 1) {
+                hint.textContent = 'Отметьте участников — сумма поделится между ними поровну.';
+            } else if (splitType === 2) {
+                hint.textContent = 'Отметьте участников и укажите точную сумму каждого — сумма долей должна совпасть с ценой покупки.';
+            } else {
+                hint.textContent = 'Отметьте участников и укажите вес доли каждого — веса нормируются автоматически, совпадать с ценой не обязаны.';
+            }
+        }
+        document.getElementById('purchaseSplitType').addEventListener('change', updateDebtorsVisibility);
+
         // ---------- Покупки ----------
         async function loadPurchases() {
             try {
                 const result = await api('/parties/' + partyID + '/purchases', 'GET');
                 const purchases = result.data || [];
+                window._purchases = purchases;
 
                 let html = '<table border="1" cellpadding="5" cellspacing="0"><tr>' +
                     '<th>Название</th><th>Описание</th><th>Цена</th><th>Тип разбивки</th><th></th></tr>';
@@ -197,7 +287,8 @@
                         '<td>' + escapeHtml(p.description || '') + '</td>' +
                         '<td>' + fmtMoney(p.price) + '</td>' +
                         '<td>' + escapeHtml(split) + '</td>' +
-                        '<td><button onclick="deletePurchase(' + p.id + ')">Удалить</button></td></tr>';
+                        '<td><button onclick="editPurchase(' + p.id + ')">Изменить</button> ' +
+                        '<button onclick="deletePurchase(' + p.id + ')">Удалить</button></td></tr>';
                 }
                 html += '</table>';
                 document.getElementById('purchases').innerHTML = html;
@@ -206,11 +297,45 @@
             }
         }
 
+        function editPurchase(purchaseID) {
+            const list = window._purchases || [];
+            const p = list.find(function (x) { return (x.id || x.ID) === purchaseID; });
+            if (!p) return;
+
+            editingPurchaseID = purchaseID;
+            document.getElementById('purchaseName').value = p.name || p.Name || '';
+            document.getElementById('purchasePrice').value = p.price != null ? p.price : (p.Price != null ? p.Price : '');
+            const splitType = p.splitType != null ? p.splitType : p.SplitType;
+            document.getElementById('purchaseSplitType').value = String(splitType != null ? splitType : 0);
+
+            // Бэкенд не отдаёт, кто был должником по старой разбивке — при изменении
+            // покупки разбивку нужно указать заново (чекбоксы/суммы сбрасываются)
+            document.querySelectorAll('#debtorsCheckboxes input[type=checkbox]').forEach(function (cb) { cb.checked = false; });
+            document.querySelectorAll('#debtorsCheckboxes input[type=number]').forEach(function (inp) { inp.value = ''; });
+            updateDebtorsVisibility();
+
+            document.getElementById('purchaseFormTitle').textContent = 'Изменить покупку «' + (p.name || p.Name || '') + '»';
+            document.getElementById('purchaseSubmitBtn').textContent = 'Сохранить изменения';
+            document.getElementById('purchaseCancelBtn').style.display = '';
+            showMessage('Разбивку долей нужно указать заново — старая не сохраняется в форме.', false);
+            document.getElementById('purchaseFormTitle').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function cancelEditPurchase() {
+            editingPurchaseID = null;
+            document.getElementById('addPurchaseForm').reset();
+            updateDebtorsVisibility();
+            document.getElementById('purchaseFormTitle').textContent = 'Добавить покупку';
+            document.getElementById('purchaseSubmitBtn').textContent = 'Добавить покупку';
+            document.getElementById('purchaseCancelBtn').style.display = 'none';
+        }
+
         async function deletePurchase(purchaseID) {
             if (!confirm('Удалить покупку?')) return;
             try {
                 await api('/parties/' + partyID + '/purchases/' + purchaseID, 'DELETE');
                 showMessage('Покупка удалена', false);
+                if (editingPurchaseID === purchaseID) cancelEditPurchase();
                 loadPurchases();
                 loadSettlements();
             } catch (e) {
@@ -230,12 +355,13 @@
                     const fromName = getParticipantName(pay.fromParticipantID);
                     const toName = getParticipantName(pay.toParticipantID);
                     const isConfirmed = pay.isConfirmed !== undefined ? pay.isConfirmed : pay.IsConfirmed;
+                    const showConfirmBtn = !isConfirmed && canConfirmPayment(pay);
                     html += '<tr><td>' + escapeHtml(fromName) + '</td>' +
                         '<td>' + escapeHtml(toName) + '</td>' +
                         '<td>' + fmtMoney(pay.amount) + '</td>' +
                         '<td>' + escapeHtml(pay.note || '') + '</td>' +
                         '<td>' + (isConfirmed ? 'подтверждён' : 'ожидает') + '</td>' +
-                        '<td>' + (isConfirmed ? '' : '<button onclick="confirmPayment(' + pay.id + ')">Подтвердить</button>') +
+                        '<td>' + (showConfirmBtn ? '<button onclick="confirmPayment(' + pay.id + ')">Подтвердить</button>' : '') +
                         '</td></tr>';
                 }
                 html += '</table>';
@@ -334,27 +460,50 @@
             const price = parseFloat(document.getElementById('purchasePrice').value);
             const splitType = parseInt(document.getElementById('purchaseSplitType').value, 10);
 
-            const checkedDebtors = [];
-            document.querySelectorAll('#debtorsCheckboxes input[type=checkbox]:checked').forEach(function (cb) {
-                checkedDebtors.push(parseInt(cb.value, 10));
-            });
-
             if (!name || !(price > 0)) {
                 showMessage('Заполните название и цену', true);
                 return;
             }
 
-            const body = {
-                name: name,
-                price: price,
-                splitType: splitType,
-                debtors: checkedDebtors
-            };
+            const body = { name: name, price: price, splitType: splitType };
+
+            if (splitType === 1) {
+                const checkedDebtors = [];
+                document.querySelectorAll('#debtorsCheckboxes input[type=checkbox]:checked').forEach(function (cb) {
+                    checkedDebtors.push(parseInt(cb.value, 10));
+                });
+                if (checkedDebtors.length === 0) {
+                    showMessage('Отметьте хотя бы одного участника для разбивки', true);
+                    return;
+                }
+                body.debtors = checkedDebtors;
+            } else if (splitType === 2 || splitType === 3) {
+                const debtorAmounts = {};
+                document.querySelectorAll('#debtorsCheckboxes .debtor-row').forEach(function (row) {
+                    const cb = row.querySelector('input[type=checkbox]');
+                    const amountInput = row.querySelector('input[type=number]');
+                    if (cb.checked) {
+                        const val = parseFloat(amountInput.value);
+                        if (val > 0) debtorAmounts[cb.value] = val;
+                    }
+                });
+                if (Object.keys(debtorAmounts).length === 0) {
+                    showMessage('Укажите сумму/долю хотя бы для одного участника', true);
+                    return;
+                }
+                body.debtorAmounts = debtorAmounts;
+            }
+            // splitType === 0 — debtors/debtorAmounts не нужны, бэкенд делит на всех участников тусовки
 
             try {
-                await api('/parties/' + partyID + '/purchases', 'POST', body);
-                showMessage('Покупка добавлена', false);
-                this.reset();
+                if (editingPurchaseID) {
+                    await api('/parties/' + partyID + '/purchases/' + editingPurchaseID, 'PUT', body);
+                    showMessage('Покупка обновлена', false);
+                } else {
+                    await api('/parties/' + partyID + '/purchases', 'POST', body);
+                    showMessage('Покупка добавлена', false);
+                }
+                cancelEditPurchase();
                 loadPurchases();
                 loadSettlements();
             } catch (err) {
