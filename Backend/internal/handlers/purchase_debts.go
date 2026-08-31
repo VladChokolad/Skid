@@ -8,6 +8,42 @@ import (
 	"github.com/VladChokolad/Skid/Backend/internal/objects"
 )
 
+// recalcEqualSplitDebts пересчитывает долги для всех покупок с splitType == 0
+// ("поровну всем") в тусовке на текущий состав участников. Вызывается при
+// добавлении/удалении участника — иначе покупки типа "поровну всем" навсегда
+// остаются разбитыми на тех, кто был в тусовке в момент их создания, и новые
+// участники не получают долю, а удалённые продолжают числиться должниками.
+// Покупок с другими splitType не касается — там состав должников выбирается
+// явно и не должен меняться сам по себе.
+func (h *Handler) recalcEqualSplitDebts(partyID int) error {
+	participants, err := h.storage.GetParticipantsByPartyID(partyID)
+	if err != nil {
+		return err
+	}
+	purchases, err := h.storage.GetPurchasesByPartyID(partyID)
+	if err != nil {
+		return err
+	}
+	for _, p := range purchases {
+		if p.SplitType != 0 {
+			continue
+		}
+		debts, err := buildDebts(p.ID, p.Price, 0, participants, nil, nil)
+		if err != nil {
+			return err
+		}
+		if err := h.storage.DeleteDebtsByPurchaseID(p.ID); err != nil {
+			return err
+		}
+		for _, d := range debts {
+			if _, err := h.storage.CreateDebt(d); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // buildDebts считает индивидуальные доли участников для покупки в соответствии
 // со splitType. purchaseID может быть 0 на момент вызова (до вставки покупки
 // в БД) — вызывающий код обязан проставить его в каждый Debt перед сохранением.

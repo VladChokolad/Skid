@@ -212,6 +212,9 @@ func (h *Handler) JoinPartyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Пересчитать покупки "поровну всем" на новый состав тусовки — не фатально для запроса
+	_ = h.recalcEqualSplitDebts(party.ID)
+
 	sendSuccessResponse(w, http.StatusCreated, "Вы присоединились к тусовке", map[string]interface{}{
 		"partyID":       party.ID,
 		"participantID": participantID,
