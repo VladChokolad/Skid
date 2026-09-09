@@ -22,6 +22,20 @@
     <p id="partyDescription"></p>
     <p>Invite-код: <span id="partyInvite"></span></p>
 
+    <div id="partySettings" style="display:none">
+        <h3>Настройки тусовки</h3>
+        <form id="editPartyForm">
+            <label for="editPartyName">Название:</label><br>
+            <input type="text" id="editPartyName" required><br>
+            <label for="editPartyDescription">Описание:</label><br>
+            <textarea id="editPartyDescription"></textarea><br>
+            <label for="editPartyImage">Ссылка на изображение:</label><br>
+            <input type="url" id="editPartyImage"><br><br>
+            <button type="submit">Сохранить изменения</button>
+        </form>
+        <button type="button" id="deletePartyBtn">Удалить тусовку</button>
+    </div>
+
     <hr>
 
     <h2>Участники</h2>
@@ -129,6 +143,10 @@
             try {
                 // Сначала тусовка/участники/"кто я" — от них зависит рендер покупок и платежей
                 await Promise.all([loadParty(), loadParticipants(), loadMe()]);
+                renderPartySettings();
+                // Права на удаление участника зависят от window._me — перерисовываем
+                // таблицу теперь, когда и участники, и "кто я" точно загружены
+                renderParticipantsTable();
                 await Promise.all([loadPurchases(), loadPayments(), loadSettlements()]);
             } catch (error) {
                 showMessage('Ошибка: ' + error.message, true);
@@ -192,26 +210,119 @@
             return false;
         }
 
+        // Может ли текущий пользователь управлять тусовкой (добавлять/удалять участников —
+        // бэкенд разрешает это владельцу тусовки или участнику с isAdmin)
+        function isPartyAdminOrOwner() {
+            if (!window._me || window._me.isAnon === undefined) return false;
+            const myParticipant = findMyParticipant();
+            if (myParticipant && (myParticipant.isAdmin || myParticipant.IsAdmin)) return true;
+            const party = window._party;
+            if (party && !window._me.isAnon) {
+                const ownerID = party.ownerID != null ? party.ownerID : party.OwnerID;
+                if (ownerID === window._me.id) return true;
+            }
+            return false;
+        }
+
+        // Владелец ли текущий пользователь тусовки (для настроек/удаления тусовки —
+        // бэкенд разрешает только владельцу, не любому админу)
+        function isPartyOwner() {
+            if (!window._me || window._me.isAnon) return false;
+            const party = window._party;
+            if (!party) return false;
+            const ownerID = party.ownerID != null ? party.ownerID : party.OwnerID;
+            return ownerID === window._me.id;
+        }
+
+        // ---------- Настройки тусовки (только владелец) ----------
+        function renderPartySettings() {
+            const box = document.getElementById('partySettings');
+            if (!isPartyOwner()) {
+                box.style.display = 'none';
+                return;
+            }
+            const party = window._party;
+            document.getElementById('editPartyName').value = party.name || party.Name || '';
+            document.getElementById('editPartyDescription').value = party.description || party.Description || '';
+            document.getElementById('editPartyImage').value = party.partyImage || party.PartyImage || '';
+            box.style.display = '';
+        }
+
+        document.getElementById('editPartyForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const name = document.getElementById('editPartyName').value.trim();
+            const description = document.getElementById('editPartyDescription').value;
+            const partyImage = document.getElementById('editPartyImage').value;
+            if (!name) {
+                showMessage('Название обязательно', true);
+                return;
+            }
+            const body = {
+                name: name,
+                description: description.trim() ? description : null,
+                partyImage: partyImage.trim() ? partyImage : null
+            };
+            try {
+                await api('/parties/' + partyID, 'PUT', body);
+                showMessage('Тусовка обновлена', false);
+                loadParty();
+            } catch (err) {
+                showMessage('Ошибка: ' + err.message, true);
+            }
+        });
+
+        document.getElementById('deletePartyBtn').addEventListener('click', async function () {
+            if (!confirm('Удалить тусовку? Это действие необратимо.')) return;
+            try {
+                await api('/parties/' + partyID, 'DELETE');
+                window.location.href = 'parties.html';
+            } catch (err) {
+                showMessage('Ошибка: ' + err.message, true);
+            }
+        });
+
         // ---------- Участники ----------
+        function renderParticipantsTable() {
+            const participants = window._participants || [];
+            const canManage = isPartyAdminOrOwner();
+
+            let html = '<table border="1" cellpadding="5" cellspacing="0"><tr>' +
+                '<th>Имя</th><th>Тип</th><th>Права</th><th></th></tr>';
+            for (const p of participants) {
+                const pid = p.id || p.ID;
+                let type = 'Реальный';
+                if (p.isPlaceholder || p.IsPlaceholder) type = 'Placeholder';
+                else if (p.isAnonymous || p.IsAnonymous) type = 'Аноним';
+                let rights = (p.isAdmin || p.IsAdmin) ? 'Админ' : 'Участник';
+                html += '<tr><td>' + escapeHtml(p.name || p.Name) + '</td>' +
+                    '<td>' + type + '</td><td>' + rights + '</td>' +
+                    '<td>' + (canManage ? '<button onclick="deleteParticipant(' + pid + ')">Удалить</button>' : '') +
+                    '</td></tr>';
+            }
+            html += '</table>';
+            document.getElementById('participants').innerHTML = html;
+        }
+
+        async function deleteParticipant(participantID) {
+            if (!confirm('Удалить участника? Все его долги по покупкам будут удалены.')) return;
+            try {
+                await api('/parties/' + partyID + '/participants/' + participantID, 'DELETE');
+                showMessage('Участник удалён', false);
+                await loadParticipants();
+                renderParticipantsTable();
+                loadSettlements();
+            } catch (e) {
+                showMessage('Ошибка: ' + e.message, true);
+            }
+        }
+
         async function loadParticipants() {
             try {
                 const result = await api('/parties/' + partyID + '/participants', 'GET');
                 const participants = result.data || [];
                 window._participants = participants;
 
-                // Список участников
-                let html = '<table border="1" cellpadding="5" cellspacing="0"><tr>' +
-                    '<th>Имя</th><th>Тип</th><th>Права</th></tr>';
-                for (const p of participants) {
-                    let type = 'Реальный';
-                    if (p.isPlaceholder || p.IsPlaceholder) type = 'Placeholder';
-                    else if (p.isAnonymous || p.IsAnonymous) type = 'Аноним';
-                    let rights = (p.isAdmin || p.IsAdmin) ? 'Админ' : 'Участник';
-                    html += '<tr><td>' + escapeHtml(p.name || p.Name) + '</td>' +
-                        '<td>' + type + '</td><td>' + rights + '</td></tr>';
-                }
-                html += '</table>';
-                document.getElementById('participants').innerHTML = html;
+                renderParticipantsTable();
 
                 // Чекбоксы должников для формы покупки + поля сумм/долей для типов 2/3
                 let checks = '';

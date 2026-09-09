@@ -116,8 +116,17 @@
             }
         }
 
-        function logout() {
-            document.cookie = 'token=; Max-Age=0; Path=/; SameSite=None; Secure';
+        async function logout() {
+            try {
+                // Cookie с токеном HttpOnly — очистить его можно только через бэкенд,
+                // а не через document.cookie
+                await fetch(AppConfig.getEndpoint('/auth/logout'), {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+            } catch (error) {
+                // Даже если запрос не прошёл — всё равно уводим на логин
+            }
             window.location.href = 'auth/login.html';
         }
 
