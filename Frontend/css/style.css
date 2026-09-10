@@ -104,6 +104,47 @@ nav a.active {
     margin-right: 6px;
 }
 
+/* ---------- Вкладки (party.html) ---------- */
+.tabs {
+    max-width: 900px;
+    margin: 16px auto 0;
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    color: var(--muted);
+    margin: 0;
+    padding: 10px 14px;
+    white-space: nowrap;
+}
+
+.tab-btn:hover {
+    background: var(--bg);
+    color: var(--text);
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    font-weight: 600;
+}
+
+.tab-panel {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+tr.row-me {
+    background: var(--success-bg);
+}
+
 a {
     color: var(--primary);
 }
