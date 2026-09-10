@@ -3,7 +3,9 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Skid — главная</title>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
@@ -30,37 +32,30 @@
         <button type="submit">Перейти к тусовке</button>
     </form>
 
-    <p id="message"></p>
+    <p id="message" class="msg"></p>
 
     <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/session.js"></script>
     <script>
         const messageElement = document.getElementById('message');
 
         function showMessage(text, isError) {
-            messageElement.style.color = isError ? 'red' : 'green';
             messageElement.textContent = text;
+            messageElement.className = 'msg' + (text ? (isError ? ' msg-error' : ' msg-success') : '');
         }
 
         // Проверяем, залогинен ли пользователь
         async function checkAuth() {
-            try {
-                const response = await fetch(AppConfig.getEndpoint('/profile'), {
-                    method: 'GET',
-                    credentials: 'include'
-                });
-                const result = await response.json();
-
-                if (response.ok && result.data && result.data.email) {
-                    // Зарегистрированный пользователь
-                    document.getElementById('userLinks').style.display = 'inline';
-                    document.getElementById('authLinks').style.display = 'none';
-                } else {
-                    // Аноним — показываем вход/регистрацию
-                    document.getElementById('authLinks').style.display = 'inline';
-                    document.getElementById('userLinks').style.display = 'none';
-                }
-            } catch (error) {
-                console.error('Ошибка проверки авторизации:', error);
+            const me = await Session.loadMe();
+            if (me && !me.isAnon) {
+                // Зарегистрированный пользователь
+                document.getElementById('userLinks').style.display = 'inline';
+                document.getElementById('authLinks').style.display = 'none';
+            } else {
+                // Аноним или не удалось определить — показываем вход/регистрацию
+                document.getElementById('authLinks').style.display = 'inline';
+                document.getElementById('userLinks').style.display = 'none';
             }
         }
 

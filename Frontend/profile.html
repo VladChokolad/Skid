@@ -3,7 +3,9 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Профиль</title>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
@@ -27,9 +29,10 @@
         <button type="button" id="deleteBtn">Удалить аккаунт</button>
     </form>
 
-    <p id="message"></p>
+    <p id="message" class="msg"></p>
 
     <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
 
     <script>
         const emailInput = document.getElementById('email');
@@ -42,29 +45,13 @@
         const deleteBtn = document.getElementById('deleteBtn');
 
         function showMessage(text, isError) {
-            messageElement.style.color = isError ? 'red' : 'green';
             messageElement.textContent = text;
+            messageElement.className = 'msg' + (text ? (isError ? ' msg-error' : ' msg-success') : '');
         }
 
         async function loadProfile() {
             try {
-                const response = await fetch(AppConfig.getEndpoint('/profile'), {
-                    method: 'GET',
-                    credentials: 'include'
-                });
-
-                if (response.status === 401) {
-                    window.location.href = 'auth/login.html';
-                    return;
-                }
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    showMessage('Ошибка загрузки: ' + (result.error || JSON.stringify(result)), true);
-                    return;
-                }
-
+                const result = await Api.api('/profile', 'GET');
                 const user = result.data;
                 // Поддержка двух форматов ключей: camelCase (User) и PascalCase (AnonymousUser)
                 emailInput.value = user.email || '';
@@ -74,7 +61,12 @@
                 createdAtInput.value = createdAt ? new Date(createdAt).toLocaleDateString('ru-RU') : '';
                 showMessage('', false);
             } catch (error) {
-                showMessage('Сетевая ошибка: ' + error.message, true);
+                if (error.status === 401) {
+                    window.location.href = 'auth/login.html';
+                    return;
+                }
+                const prefix = error.status === undefined ? 'Сетевая ошибка: ' : 'Ошибка загрузки: ';
+                showMessage(prefix + error.message, true);
             }
         }
 
@@ -91,28 +83,15 @@
             const data = { name: name, phone: phone };
 
             try {
-                const response = await fetch(AppConfig.getEndpoint('/profile'), {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify(data)
-                });
-
-                const result = await response.json();
-
-                if (response.status === 401) {
+                await Api.api('/profile', 'PUT', data);
+                showMessage('Данные успешно сохранены', false);
+            } catch (error) {
+                if (error.status === 401) {
                     window.location.href = 'auth/login.html';
                     return;
                 }
-
-                if (!response.ok) {
-                    showMessage('Ошибка сохранения: ' + (result.error || JSON.stringify(result)), true);
-                    return;
-                }
-
-                showMessage('Данные успешно сохранены', false);
-            } catch (error) {
-                showMessage('Сетевая ошибка: ' + error.message, true);
+                const prefix = error.status === undefined ? 'Сетевая ошибка: ' : 'Ошибка сохранения: ';
+                showMessage(prefix + error.message, true);
             }
         }
 
@@ -120,10 +99,7 @@
             try {
                 // Cookie с токеном HttpOnly — очистить его можно только через бэкенд,
                 // а не через document.cookie
-                await fetch(AppConfig.getEndpoint('/auth/logout'), {
-                    method: 'POST',
-                    credentials: 'include'
-                });
+                await Api.api('/auth/logout', 'POST');
             } catch (error) {
                 // Даже если запрос не прошёл — всё равно уводим на логин
             }
@@ -137,21 +113,11 @@
             }
 
             try {
-                const response = await fetch(AppConfig.getEndpoint('/profile'), {
-                    method: 'DELETE',
-                    credentials: 'include'
-                });
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    showMessage('Ошибка удаления: ' + (result.error || JSON.stringify(result)), true);
-                    return;
-                }
-
+                await Api.api('/profile', 'DELETE');
                 window.location.href = 'auth/login.html';
             } catch (error) {
-                showMessage('Сетевая ошибка: ' + error.message, true);
+                const prefix = error.status === undefined ? 'Сетевая ошибка: ' : 'Ошибка удаления: ';
+                showMessage(prefix + error.message, true);
             }
         }
 

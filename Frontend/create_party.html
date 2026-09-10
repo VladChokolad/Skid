@@ -2,7 +2,10 @@
 <html>
 
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Создание тусовки</title>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
@@ -16,8 +19,9 @@
         <input type="url" id="partyImage" name="partyImage"><br><br>
         <button type="submit">Создать тусовку</button>
     </form>
-    <p id="message"></p>
+    <p id="message" class="msg"></p>
     <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
     <script>
         document.getElementById('createPartyForm').addEventListener('submit', async function (event) {
             event.preventDefault();
@@ -35,28 +39,13 @@
             };
 
             try {
-                const response = await fetch(AppConfig.getEndpoint('/parties'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(body),
-                    credentials: 'include'
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    messageElement.style.color = 'green';
-                    messageElement.textContent = 'Успех: ' + (data.message || JSON.stringify(data));
-                    event.target.reset();
-                } else {
-                    messageElement.style.color = 'red';
-                    messageElement.textContent = 'Ошибка: ' + (data.error || JSON.stringify(data));
-                }
+                const data = await Api.api('/parties', 'POST', body);
+                messageElement.className = 'msg msg-success';
+                messageElement.textContent = 'Успех: ' + (data.message || JSON.stringify(data));
+                event.target.reset();
             } catch (error) {
-                messageElement.style.color = 'red';
-                messageElement.textContent = 'Сетевая ошибка: ' + error.message;
+                messageElement.className = 'msg msg-error';
+                messageElement.textContent = (error.status === undefined ? 'Сетевая ошибка: ' : 'Ошибка: ') + error.message;
             }
         });
     </script>

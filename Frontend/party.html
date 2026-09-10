@@ -3,7 +3,9 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Тусовка</title>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
@@ -88,9 +90,11 @@
     <h2>Сводка</h2>
     <div id="settlements"></div>
 
-    <p id="message"></p>
+    <p id="message" class="msg"></p>
 
     <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/session.js"></script>
     <script>
         const params = new URLSearchParams(window.location.search);
         const partyID = params.get('id');
@@ -101,37 +105,8 @@
         let editingPurchaseID = null;
 
         function showMessage(text, isError) {
-            messageElement.style.color = isError ? 'red' : 'green';
             messageElement.textContent = text;
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text == null ? '' : String(text);
-            return div.innerHTML;
-        }
-
-        function fmtMoney(value) {
-            const num = Number(value) || 0;
-            return num.toFixed(2) + ' ₽';
-        }
-
-        async function api(path, method, body) {
-            const options = {
-                method: method,
-                credentials: 'include'
-            };
-            if (body !== undefined) {
-                options.headers = { 'Content-Type': 'application/json' };
-                options.body = JSON.stringify(body);
-            }
-            const response = await fetch(AppConfig.getEndpoint(path), options);
-            let result = null;
-            try { result = await response.json(); } catch (e) { result = {}; }
-            if (!response.ok) {
-                throw new Error((result && result.error) || JSON.stringify(result));
-            }
-            return result;
+            messageElement.className = 'msg' + (text ? (isError ? ' msg-error' : ' msg-success') : '');
         }
 
         // ---------- Загрузка всех данных ----------
@@ -155,7 +130,7 @@
 
         async function loadParty() {
             try {
-                const result = await api('/parties/' + partyID, 'GET');
+                const result = await Api.api('/parties/' + partyID, 'GET');
                 const party = result.data || result;
                 window._party = party;
                 document.getElementById('partyTitle').textContent = party.name || party.Name || 'Тусовка';
@@ -170,15 +145,7 @@
 
         // ---------- "Кто я" — нужно, чтобы понимать, что можно подтверждать/редактировать ----------
         async function loadMe() {
-            try {
-                const result = await api('/profile', 'GET');
-                const data = result.data || result;
-                // У анонимов в ответе нет email — так отличаем зарегистрированного пользователя от гостя
-                const isAnon = !('email' in data);
-                window._me = { id: data.id, isAnon: isAnon };
-            } catch (e) {
-                window._me = null;
-            }
+            window._me = await Session.loadMe();
         }
 
         function findMyParticipant() {
@@ -263,7 +230,7 @@
                 partyImage: partyImage.trim() ? partyImage : null
             };
             try {
-                await api('/parties/' + partyID, 'PUT', body);
+                await Api.api('/parties/' + partyID, 'PUT', body);
                 showMessage('Тусовка обновлена', false);
                 loadParty();
             } catch (err) {
@@ -274,7 +241,7 @@
         document.getElementById('deletePartyBtn').addEventListener('click', async function () {
             if (!confirm('Удалить тусовку? Это действие необратимо.')) return;
             try {
-                await api('/parties/' + partyID, 'DELETE');
+                await Api.api('/parties/' + partyID, 'DELETE');
                 window.location.href = 'parties.html';
             } catch (err) {
                 showMessage('Ошибка: ' + err.message, true);
@@ -294,7 +261,7 @@
                 if (p.isPlaceholder || p.IsPlaceholder) type = 'Placeholder';
                 else if (p.isAnonymous || p.IsAnonymous) type = 'Аноним';
                 let rights = (p.isAdmin || p.IsAdmin) ? 'Админ' : 'Участник';
-                html += '<tr><td>' + escapeHtml(p.name || p.Name) + '</td>' +
+                html += '<tr><td>' + Api.escapeHtml(p.name || p.Name) + '</td>' +
                     '<td>' + type + '</td><td>' + rights + '</td>' +
                     '<td>' + (canManage ? '<button onclick="deleteParticipant(' + pid + ')">Удалить</button>' : '') +
                     '</td></tr>';
@@ -306,7 +273,7 @@
         async function deleteParticipant(participantID) {
             if (!confirm('Удалить участника? Все его долги по покупкам будут удалены.')) return;
             try {
-                await api('/parties/' + partyID + '/participants/' + participantID, 'DELETE');
+                await Api.api('/parties/' + partyID + '/participants/' + participantID, 'DELETE');
                 showMessage('Участник удалён', false);
                 await loadParticipants();
                 renderParticipantsTable();
@@ -318,7 +285,7 @@
 
         async function loadParticipants() {
             try {
-                const result = await api('/parties/' + partyID + '/participants', 'GET');
+                const result = await Api.api('/parties/' + partyID + '/participants', 'GET');
                 const participants = result.data || [];
                 window._participants = participants;
 
@@ -330,7 +297,7 @@
                     const pid = p.id || p.ID;
                     checks += '<div class="debtor-row" style="margin-bottom:4px">' +
                         '<label><input type="checkbox" value="' + pid + '"> ' +
-                        escapeHtml(p.name || p.Name) + '</label> ' +
+                        Api.escapeHtml(p.name || p.Name) + '</label> ' +
                         '<input type="number" step="0.01" class="debtor-amount" style="width:110px;display:none">' +
                         '</div>';
                 }
@@ -341,11 +308,11 @@
                 let opts = '<option value="">-- выберите --</option>';
                 for (const p of participants) {
                     opts += '<option value="' + (p.id || p.ID) + '">' +
-                        escapeHtml(p.name || p.Name) + '</option>';
+                        Api.escapeHtml(p.name || p.Name) + '</option>';
                 }
                 document.getElementById('paymentTo').innerHTML = opts;
             } catch (e) {
-                document.getElementById('participants').innerHTML = '<p>Ошибка: ' + escapeHtml(e.message) + '</p>';
+                document.getElementById('participants').innerHTML = '<p>Ошибка: ' + Api.escapeHtml(e.message) + '</p>';
             }
         }
 
@@ -385,7 +352,7 @@
         // ---------- Покупки ----------
         async function loadPurchases() {
             try {
-                const result = await api('/parties/' + partyID + '/purchases', 'GET');
+                const result = await Api.api('/parties/' + partyID + '/purchases', 'GET');
                 const purchases = result.data || [];
                 window._purchases = purchases;
 
@@ -394,17 +361,17 @@
                 for (const p of purchases) {
                     const splitNames = { 0: 'поровну всем', 1: 'поровну выбранным', 2: 'индив. суммы', 3: 'индив. доли' };
                     const split = splitNames[p.splitType] || p.splitType;
-                    html += '<tr><td>' + escapeHtml(p.name) + '</td>' +
-                        '<td>' + escapeHtml(p.description || '') + '</td>' +
-                        '<td>' + fmtMoney(p.price) + '</td>' +
-                        '<td>' + escapeHtml(split) + '</td>' +
+                    html += '<tr><td>' + Api.escapeHtml(p.name) + '</td>' +
+                        '<td>' + Api.escapeHtml(p.description || '') + '</td>' +
+                        '<td>' + Api.fmtMoney(p.price) + '</td>' +
+                        '<td>' + Api.escapeHtml(split) + '</td>' +
                         '<td><button onclick="editPurchase(' + p.id + ')">Изменить</button> ' +
                         '<button onclick="deletePurchase(' + p.id + ')">Удалить</button></td></tr>';
                 }
                 html += '</table>';
                 document.getElementById('purchases').innerHTML = html;
             } catch (e) {
-                document.getElementById('purchases').innerHTML = '<p>Ошибка: ' + escapeHtml(e.message) + '</p>';
+                document.getElementById('purchases').innerHTML = '<p>Ошибка: ' + Api.escapeHtml(e.message) + '</p>';
             }
         }
 
@@ -444,7 +411,7 @@
         async function deletePurchase(purchaseID) {
             if (!confirm('Удалить покупку?')) return;
             try {
-                await api('/parties/' + partyID + '/purchases/' + purchaseID, 'DELETE');
+                await Api.api('/parties/' + partyID + '/purchases/' + purchaseID, 'DELETE');
                 showMessage('Покупка удалена', false);
                 if (editingPurchaseID === purchaseID) cancelEditPurchase();
                 loadPurchases();
@@ -457,7 +424,7 @@
         // ---------- Платежи ----------
         async function loadPayments() {
             try {
-                const result = await api('/parties/' + partyID + '/payments', 'GET');
+                const result = await Api.api('/parties/' + partyID + '/payments', 'GET');
                 const payments = result.data || [];
 
                 let html = '<table border="1" cellpadding="5" cellspacing="0"><tr>' +
@@ -467,10 +434,10 @@
                     const toName = getParticipantName(pay.toParticipantID);
                     const isConfirmed = pay.isConfirmed !== undefined ? pay.isConfirmed : pay.IsConfirmed;
                     const showConfirmBtn = !isConfirmed && canConfirmPayment(pay);
-                    html += '<tr><td>' + escapeHtml(fromName) + '</td>' +
-                        '<td>' + escapeHtml(toName) + '</td>' +
-                        '<td>' + fmtMoney(pay.amount) + '</td>' +
-                        '<td>' + escapeHtml(pay.note || '') + '</td>' +
+                    html += '<tr><td>' + Api.escapeHtml(fromName) + '</td>' +
+                        '<td>' + Api.escapeHtml(toName) + '</td>' +
+                        '<td>' + Api.fmtMoney(pay.amount) + '</td>' +
+                        '<td>' + Api.escapeHtml(pay.note || '') + '</td>' +
                         '<td>' + (isConfirmed ? 'подтверждён' : 'ожидает') + '</td>' +
                         '<td>' + (showConfirmBtn ? '<button onclick="confirmPayment(' + pay.id + ')">Подтвердить</button>' : '') +
                         '</td></tr>';
@@ -478,13 +445,13 @@
                 html += '</table>';
                 document.getElementById('payments').innerHTML = html;
             } catch (e) {
-                document.getElementById('payments').innerHTML = '<p>Ошибка: ' + escapeHtml(e.message) + '</p>';
+                document.getElementById('payments').innerHTML = '<p>Ошибка: ' + Api.escapeHtml(e.message) + '</p>';
             }
         }
 
         async function confirmPayment(paymentID) {
             try {
-                await api('/parties/' + partyID + '/payments/' + paymentID + '/confirm', 'POST');
+                await Api.api('/parties/' + partyID + '/payments/' + paymentID + '/confirm', 'POST');
                 showMessage('Платёж подтверждён', false);
                 loadPayments();
                 loadSettlements();
@@ -504,7 +471,7 @@
         // ---------- Сводка ----------
         async function loadSettlements() {
             try {
-                const result = await api('/parties/' + partyID + '/settlements', 'GET');
+                const result = await Api.api('/parties/' + partyID + '/settlements', 'GET');
                 // Ответ: { Calculation: { Balances: [...], Settlements: [...] } }
                 const calc = (result.data && result.data.Calculation) || result.Calculation;
                 if (!calc) {
@@ -520,10 +487,10 @@
                     for (const b of balances) {
                         const bal = b.Balance !== undefined ? b.Balance : b.balance;
                         const color = bal >= 0 ? 'green' : 'red';
-                        html += '<tr><td>' + escapeHtml(b.Name || b.name) + '</td>' +
-                            '<td>' + fmtMoney(b.Paid !== undefined ? b.Paid : b.paid) + '</td>' +
-                            '<td>' + fmtMoney(b.Owed !== undefined ? b.Owed : b.owed) + '</td>' +
-                            '<td style="color:' + color + '">' + fmtMoney(bal) + '</td></tr>';
+                        html += '<tr><td>' + Api.escapeHtml(b.Name || b.name) + '</td>' +
+                            '<td>' + Api.fmtMoney(b.Paid !== undefined ? b.Paid : b.paid) + '</td>' +
+                            '<td>' + Api.fmtMoney(b.Owed !== undefined ? b.Owed : b.owed) + '</td>' +
+                            '<td style="color:' + color + '">' + Api.fmtMoney(bal) + '</td></tr>';
                     }
                     html += '</table>';
                 }
@@ -534,9 +501,9 @@
                     html += '<table border="1" cellpadding="5" cellspacing="0"><tr>' +
                         '<th>Кто платит</th><th>Кому</th><th>Сумма</th></tr>';
                     for (const s of settlements) {
-                        html += '<tr><td>' + escapeHtml(getParticipantName(s.FromParticipantID)) + '</td>' +
-                            '<td>' + escapeHtml(getParticipantName(s.ToParticipantID)) + '</td>' +
-                            '<td>' + fmtMoney(s.Amount) + '</td></tr>';
+                        html += '<tr><td>' + Api.escapeHtml(getParticipantName(s.FromParticipantID)) + '</td>' +
+                            '<td>' + Api.escapeHtml(getParticipantName(s.ToParticipantID)) + '</td>' +
+                            '<td>' + Api.fmtMoney(s.Amount) + '</td></tr>';
                     }
                     html += '</table>';
                 } else {
@@ -545,7 +512,7 @@
 
                 document.getElementById('settlements').innerHTML = html;
             } catch (e) {
-                document.getElementById('settlements').innerHTML = '<p>Ошибка: ' + escapeHtml(e.message) + '</p>';
+                document.getElementById('settlements').innerHTML = '<p>Ошибка: ' + Api.escapeHtml(e.message) + '</p>';
             }
         }
 
@@ -555,7 +522,7 @@
             const name = document.getElementById('participantName').value.trim();
             if (!name) return;
             try {
-                await api('/parties/' + partyID + '/participants', 'POST', { name: name });
+                await Api.api('/parties/' + partyID + '/participants', 'POST', { name: name });
                 showMessage('Участник добавлен', false);
                 this.reset();
                 loadParticipants();
@@ -608,10 +575,10 @@
 
             try {
                 if (editingPurchaseID) {
-                    await api('/parties/' + partyID + '/purchases/' + editingPurchaseID, 'PUT', body);
+                    await Api.api('/parties/' + partyID + '/purchases/' + editingPurchaseID, 'PUT', body);
                     showMessage('Покупка обновлена', false);
                 } else {
-                    await api('/parties/' + partyID + '/purchases', 'POST', body);
+                    await Api.api('/parties/' + partyID + '/purchases', 'POST', body);
                     showMessage('Покупка добавлена', false);
                 }
                 cancelEditPurchase();
@@ -634,7 +601,7 @@
             }
 
             try {
-                await api('/parties/' + partyID + '/payments', 'POST', {
+                await Api.api('/parties/' + partyID + '/payments', 'POST', {
                     toParticipantID: to,
                     amount: amount,
                     note: note
