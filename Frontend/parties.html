@@ -30,6 +30,14 @@
         function showMessage(text, isError) {
             messageElement.textContent = text;
             messageElement.className = 'msg' + (text ? (isError ? ' msg-error' : ' msg-success') : '');
+            if (text && !isError) {
+                setTimeout(function () {
+                    if (messageElement.textContent === text) {
+                        messageElement.textContent = '';
+                        messageElement.className = 'msg';
+                    }
+                }, 4000);
+            }
         }
 
         async function loadParties() {
@@ -52,7 +60,8 @@
 
         function renderParties(parties) {
             if (!parties || parties.length === 0) {
-                partyList.innerHTML = '<p>У вас пока нет тусовок.</p>';
+                partyList.innerHTML = '<p class="muted">У вас пока нет тусовок.</p>' +
+                    '<p><a href="create_party.html"><button type="button">Создать тусовку</button></a></p>';
                 return;
             }
 

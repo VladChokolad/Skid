@@ -60,6 +60,14 @@
         function showMessage(text, isError) {
             messageElement.textContent = text;
             messageElement.className = 'msg' + (text ? (isError ? ' msg-error' : ' msg-success') : '');
+            if (text && !isError) {
+                setTimeout(function () {
+                    if (messageElement.textContent === text) {
+                        messageElement.textContent = '';
+                        messageElement.className = 'msg';
+                    }
+                }, 4000);
+            }
         }
 
         function updateAvatarPreview(url) {
@@ -87,7 +95,7 @@
                 profileImageInput.value = profileImage;
                 updateAvatarPreview(profileImage);
                 const createdAt = user.createdAt || user.CreatedAt;
-                createdAtInput.value = createdAt ? new Date(createdAt).toLocaleDateString('ru-RU') : '';
+                createdAtInput.value = Api.fmtDate(createdAt);
                 showMessage('', false);
             } catch (error) {
                 if (error.status === 401) {

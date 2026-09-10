@@ -36,6 +36,14 @@
         function showMessage(text, isError) {
             messageElement.textContent = text;
             messageElement.className = 'msg' + (text ? (isError ? ' msg-error' : ' msg-success') : '');
+            if (text && !isError) {
+                setTimeout(function () {
+                    if (messageElement.textContent === text) {
+                        messageElement.textContent = '';
+                        messageElement.className = 'msg';
+                    }
+                }, 4000);
+            }
         }
 
         // Предпросмотр тусовки

@@ -37,6 +37,13 @@ const Api = (function () {
         return num.toFixed(2) + ' ₽';
     }
 
+    function fmtDate(value) {
+        if (!value) return '';
+        const d = new Date(value);
+        if (isNaN(d.getTime())) return '';
+        return d.toLocaleDateString('ru-RU');
+    }
+
     // Проверяет ?redirect= из query-строки перед использованием в навигации —
     // защита от open redirect (чужой абсолютный URL/протокол вроде javascript:
     // или //evil.com), пропускает только простой относительный путь внутри Frontend/.
@@ -48,5 +55,5 @@ const Api = (function () {
         return target;
     }
 
-    return { api, escapeHtml, fmtMoney, sanitizeRedirect };
+    return { api, escapeHtml, fmtMoney, fmtDate, sanitizeRedirect };
 })();

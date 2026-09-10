@@ -50,6 +50,9 @@
                 messageElement.className = 'msg msg-success';
                 messageElement.textContent = 'Успех: ' + (data.message || JSON.stringify(data));
                 event.target.reset();
+                setTimeout(function () {
+                    window.location.href = 'parties.html';
+                }, 1200);
             } catch (error) {
                 messageElement.className = 'msg msg-error';
                 messageElement.textContent = (error.status === undefined ? 'Сетевая ошибка: ' : 'Ошибка: ') + error.message;
