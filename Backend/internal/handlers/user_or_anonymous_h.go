@@ -9,8 +9,9 @@ import (
 )
 
 type UpdateUserRequest struct {
-	Name  string  `json:"name"`
-	Phone *string `json:"phone"`
+	Name         string  `json:"name"`
+	Phone        *string `json:"phone"`
+	ProfileImage *string `json:"profileImage"`
 }
 
 func (h *Handler) GetMyUserOrAnonymousHandler(w http.ResponseWriter, r *http.Request) {
@@ -36,11 +37,12 @@ func (h *Handler) GetMyUserOrAnonymousHandler(w http.ResponseWriter, r *http.Req
 		}
 		// Не отправляем хэш пароля
 		sendSuccessResponse(w, http.StatusOK, "Данные пользователя", map[string]interface{}{
-			"id":        user.ID,
-			"name":      user.Name,
-			"email":     user.Email,
-			"phone":     user.Phone,
-			"createdAt": user.CreatedAt,
+			"id":           user.ID,
+			"name":         user.Name,
+			"email":        user.Email,
+			"phone":        user.Phone,
+			"profileImage": user.ProfileImage,
+			"createdAt":    user.CreatedAt,
 		})
 	}
 }
@@ -75,9 +77,10 @@ func (h *Handler) UpdateMyUserOrAnonymousHandler(w http.ResponseWriter, r *http.
 		}
 	} else {
 		user := objects.User{
-			ID:    userID,
-			Name:  req.Name,
-			Phone: req.Phone,
+			ID:           userID,
+			Name:         req.Name,
+			Phone:        req.Phone,
+			ProfileImage: req.ProfileImage,
 		}
 		if err := h.storage.UpdateUser(user); err != nil {
 			sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при обновлении")

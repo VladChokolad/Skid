@@ -100,6 +100,7 @@ func (h *Handler) PreviewJoinHandler(w http.ResponseWriter, r *http.Request) {
 	sendSuccessResponse(w, http.StatusOK, "Информация о тусовке", map[string]interface{}{
 		"partyID":      party.ID,
 		"partyName":    party.Name,
+		"partyImage":   party.PartyImage,
 		"placeholders": placeholders,
 	})
 }

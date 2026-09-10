@@ -11,18 +11,18 @@
 <body>
     <h1>Тусовка</h1>
 
-    <nav>
-        <a href="main.html">Главная</a> |
-        <a href="parties.html">Мои тусовки</a> |
-        <a href="profile.html">Профиль</a>
-    </nav>
+    <nav id="site-header" data-page="party"></nav>
 
     <hr>
 
     <!-- Информация о тусовке -->
+    <img id="partyImageEl" class="site-header__image hidden" alt="">
     <h2 id="partyTitle">Загрузка...</h2>
     <p id="partyDescription"></p>
-    <p>Invite-код: <span id="partyInvite"></span></p>
+    <p>
+        Invite-код: <span id="partyInvite"></span>
+        <button type="button" id="copyInviteBtn" class="hidden">Скопировать ссылку-приглашение</button>
+    </p>
 
     <div id="partySettings" style="display:none">
         <h3>Настройки тусовки</h3>
@@ -95,6 +95,7 @@
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
     <script src="js/session.js"></script>
+    <script src="js/nav.js"></script>
     <script>
         const params = new URLSearchParams(window.location.search);
         const partyID = params.get('id');
@@ -133,14 +134,43 @@
                 const result = await Api.api('/parties/' + partyID, 'GET');
                 const party = result.data || result;
                 window._party = party;
-                document.getElementById('partyTitle').textContent = party.name || party.Name || 'Тусовка';
+                const name = party.name || party.Name || 'Тусовка';
+                document.getElementById('partyTitle').textContent = name;
+                document.title = name + ' — Skid';
                 document.getElementById('partyDescription').textContent =
                     party.description || party.Description || '';
-                document.getElementById('partyInvite').textContent =
-                    party.inviteCode || party.InviteCode || '';
+
+                const inviteCode = party.inviteCode || party.InviteCode || '';
+                document.getElementById('partyInvite').textContent = inviteCode;
+                const copyBtn = document.getElementById('copyInviteBtn');
+                if (inviteCode) {
+                    copyBtn.classList.remove('hidden');
+                    copyBtn.onclick = function () { copyInviteLink(inviteCode); };
+                } else {
+                    copyBtn.classList.add('hidden');
+                }
+
+                const image = party.partyImage || party.PartyImage || '';
+                const imageEl = document.getElementById('partyImageEl');
+                if (image) {
+                    imageEl.src = image;
+                    imageEl.classList.remove('hidden');
+                } else {
+                    imageEl.classList.add('hidden');
+                }
             } catch (e) {
                 document.getElementById('partyTitle').textContent = 'Не удалось загрузить тусовку';
             }
+        }
+
+        function copyInviteLink(inviteCode) {
+            const link = window.location.origin + window.location.pathname.replace('party.html', 'invite.html') +
+                '?code=' + encodeURIComponent(inviteCode);
+            navigator.clipboard.writeText(link).then(function () {
+                showMessage('Ссылка-приглашение скопирована', false);
+            }, function () {
+                showMessage('Не удалось скопировать ссылку: ' + link, true);
+            });
         }
 
         // ---------- "Кто я" — нужно, чтобы понимать, что можно подтверждать/редактировать ----------
