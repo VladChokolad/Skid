@@ -10,6 +10,11 @@
 
 <body>
     <h2>Register</h2>
+
+    <nav id="site-header" data-page="register" data-prefix="../"></nav>
+
+    <hr>
+
     <form id="registerForm">
         <label for="username">Name:</label><br>
         <input type="text" id="name" name="name" required><br>
@@ -23,6 +28,8 @@
 
     <script src="../js/config.js"></script>
     <script src="../js/api.js"></script>
+    <script src="../js/session.js"></script>
+    <script src="../js/nav.js"></script>
 
     <script>
         document.getElementById('registerForm').addEventListener('submit', async function (event) {

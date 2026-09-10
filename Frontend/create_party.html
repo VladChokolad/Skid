@@ -10,6 +10,11 @@
 
 <body>
     <h2>Создание тусовки</h2>
+
+    <nav id="site-header" data-page="create_party"></nav>
+
+    <hr>
+
     <form id="createPartyForm">
         <label for="name">Название:</label><br>
         <input type="text" id="name" name="name" required><br>
@@ -22,6 +27,8 @@
     <p id="message" class="msg"></p>
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
+    <script src="js/session.js"></script>
+    <script src="js/nav.js"></script>
     <script>
         document.getElementById('createPartyForm').addEventListener('submit', async function (event) {
             event.preventDefault();

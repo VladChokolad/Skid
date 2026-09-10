@@ -10,6 +10,11 @@
 
 <body>
     <h2>Login</h2>
+
+    <nav id="site-header" data-page="login" data-prefix="../"></nav>
+
+    <hr>
+
     <form id="loginForm">
         <label for="email">Email:</label><br>
         <input type="email" id="email" name="email" required><br>
@@ -21,6 +26,8 @@
 
     <script src="../js/config.js"></script>
     <script src="../js/api.js"></script>
+    <script src="../js/session.js"></script>
+    <script src="../js/nav.js"></script>
 
     <script>
         document.getElementById('loginForm').addEventListener('submit', async function (event) {

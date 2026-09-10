@@ -11,6 +11,12 @@
 <body>
     <h1>Профиль</h1>
 
+    <nav id="site-header" data-page="profile"></nav>
+
+    <hr>
+
+    <img id="avatarPreview" class="avatar hidden" alt="">
+
     <form id="profileForm">
         <label for="email">Email:</label><br>
         <input type="email" id="email" name="email" disabled><br><br>
@@ -20,6 +26,9 @@
 
         <label for="phone">Телефон:</label><br>
         <input type="text" id="phone" name="phone"><br><br>
+
+        <label for="profileImage">Ссылка на аватар:</label><br>
+        <input type="url" id="profileImage" name="profileImage"><br><br>
 
         <label for="createdAt">Дата регистрации:</label><br>
         <input type="text" id="createdAt" name="createdAt" disabled><br><br>
@@ -33,11 +42,15 @@
 
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
+    <script src="js/session.js"></script>
+    <script src="js/nav.js"></script>
 
     <script>
         const emailInput = document.getElementById('email');
         const nameInput = document.getElementById('name');
         const phoneInput = document.getElementById('phone');
+        const profileImageInput = document.getElementById('profileImage');
+        const avatarPreview = document.getElementById('avatarPreview');
         const createdAtInput = document.getElementById('createdAt');
         const messageElement = document.getElementById('message');
         const saveBtn = document.getElementById('saveBtn');
@@ -49,6 +62,19 @@
             messageElement.className = 'msg' + (text ? (isError ? ' msg-error' : ' msg-success') : '');
         }
 
+        function updateAvatarPreview(url) {
+            if (url) {
+                avatarPreview.src = url;
+                avatarPreview.classList.remove('hidden');
+            } else {
+                avatarPreview.classList.add('hidden');
+                avatarPreview.removeAttribute('src');
+            }
+        }
+        profileImageInput.addEventListener('input', function () {
+            updateAvatarPreview(profileImageInput.value.trim());
+        });
+
         async function loadProfile() {
             try {
                 const result = await Api.api('/profile', 'GET');
@@ -57,6 +83,9 @@
                 emailInput.value = user.email || '';
                 nameInput.value = user.name || user.Name || '';
                 phoneInput.value = user.phone || user.Phone || '';
+                const profileImage = user.profileImage || user.ProfileImage || '';
+                profileImageInput.value = profileImage;
+                updateAvatarPreview(profileImage);
                 const createdAt = user.createdAt || user.CreatedAt;
                 createdAtInput.value = createdAt ? new Date(createdAt).toLocaleDateString('ru-RU') : '';
                 showMessage('', false);
@@ -80,7 +109,10 @@
             const phoneValue = phoneInput.value.trim();
             const phone = phoneValue === '' ? null : phoneValue;
 
-            const data = { name: name, phone: phone };
+            const imageValue = profileImageInput.value.trim();
+            const profileImage = imageValue === '' ? null : imageValue;
+
+            const data = { name: name, phone: phone, profileImage: profileImage };
 
             try {
                 await Api.api('/profile', 'PUT', data);

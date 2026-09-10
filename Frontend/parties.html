@@ -11,11 +11,7 @@
 <body>
     <h1>Мои тусовки</h1>
 
-    <nav>
-        <a href="main.html">Главная</a> |
-        <a href="profile.html">Профиль</a> |
-        <a href="create_party.html">Создать тусовку</a>
-    </nav>
+    <nav id="site-header" data-page="parties"></nav>
 
     <hr>
 
@@ -25,6 +21,8 @@
 
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
+    <script src="js/session.js"></script>
+    <script src="js/nav.js"></script>
     <script>
         const partyList = document.getElementById('partyList');
         const messageElement = document.getElementById('message');
@@ -59,15 +57,17 @@
             }
 
             let html = '<table border="1" cellpadding="6" cellspacing="0">';
-            html += '<tr><th>Название</th><th>Описание</th><th>Invite-код</th><th>Статус</th><th></th></tr>';
+            html += '<tr><th></th><th>Название</th><th>Описание</th><th>Invite-код</th><th>Статус</th><th></th></tr>';
 
             for (const p of parties) {
                 const name = p.name || p.Name || '';
                 const description = p.description || p.Description || '';
                 const inviteCode = p.inviteCode || p.InviteCode || '';
                 const isActive = p.isActive !== undefined ? p.isActive : (p.IsActive !== undefined ? p.IsActive : true);
+                const image = p.partyImage || p.PartyImage || '';
 
                 html += '<tr>';
+                html += '<td>' + (image ? '<img class="party-thumb" src="' + Api.escapeHtml(image) + '" alt="">' : '') + '</td>';
                 html += '<td>' + Api.escapeHtml(name) + '</td>';
                 html += '<td>' + Api.escapeHtml(description) + '</td>';
                 html += '<td>' + Api.escapeHtml(inviteCode) + '</td>';

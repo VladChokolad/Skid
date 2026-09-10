@@ -11,17 +11,7 @@
 <body>
     <h1>Skid — учёт общих трат</h1>
 
-    <nav>
-        <span id="authLinks">
-            <a href="auth/login.html">Войти</a> |
-            <a href="auth/register.html">Зарегистрироваться</a>
-        </span>
-        <span id="userLinks" style="display:none">
-            <a href="parties.html">Мои тусовки</a> |
-            <a href="profile.html">Профиль</a> |
-            <a href="create_party.html">Создать тусовку</a>
-        </span>
-    </nav>
+    <nav id="site-header" data-page="main"></nav>
 
     <hr>
 
@@ -37,26 +27,13 @@
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
     <script src="js/session.js"></script>
+    <script src="js/nav.js"></script>
     <script>
         const messageElement = document.getElementById('message');
 
         function showMessage(text, isError) {
             messageElement.textContent = text;
             messageElement.className = 'msg' + (text ? (isError ? ' msg-error' : ' msg-success') : '');
-        }
-
-        // Проверяем, залогинен ли пользователь
-        async function checkAuth() {
-            const me = await Session.loadMe();
-            if (me && !me.isAnon) {
-                // Зарегистрированный пользователь
-                document.getElementById('userLinks').style.display = 'inline';
-                document.getElementById('authLinks').style.display = 'none';
-            } else {
-                // Аноним или не удалось определить — показываем вход/регистрацию
-                document.getElementById('authLinks').style.display = 'inline';
-                document.getElementById('userLinks').style.display = 'none';
-            }
         }
 
         document.getElementById('inviteForm').addEventListener('submit', function (event) {
@@ -68,8 +45,6 @@
             }
             window.location.href = 'invite.html?code=' + encodeURIComponent(code);
         });
-
-        document.addEventListener('DOMContentLoaded', checkAuth);
     </script>
 </body>
 

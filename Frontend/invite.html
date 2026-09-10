@@ -11,9 +11,7 @@
 <body>
     <h1>Приглашение в тусовку</h1>
 
-    <nav>
-        <a href="main.html">Главная</a>
-    </nav>
+    <nav id="site-header" data-page="invite"></nav>
 
     <hr>
 
@@ -25,6 +23,8 @@
 
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
+    <script src="js/session.js"></script>
+    <script src="js/nav.js"></script>
     <script>
         const preview = document.getElementById('preview');
         const messageElement = document.getElementById('message');
@@ -57,9 +57,14 @@
 
         function renderPreview(data) {
             const partyName = data.partyName || '';
+            const partyImage = data.partyImage || '';
             const placeholders = data.placeholders || [];
 
-            let html = '<h2>Тусовка: ' + Api.escapeHtml(partyName) + '</h2>';
+            let html = '';
+            if (partyImage) {
+                html += '<img class="site-header__image" src="' + Api.escapeHtml(partyImage) + '" alt="">';
+            }
+            html += '<h2>Тусовка: ' + Api.escapeHtml(partyName) + '</h2>';
 
             if (placeholders.length > 0) {
                 html += '<p>Можно занять свободное место участника:</p>';
