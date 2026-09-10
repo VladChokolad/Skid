@@ -3,7 +3,9 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Мои тусовки</title>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
@@ -19,44 +21,34 @@
 
     <h2>Список тусовок</h2>
     <div id="partyList"></div>
-    <p id="message"></p>
+    <p id="message" class="msg"></p>
 
     <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
     <script>
         const partyList = document.getElementById('partyList');
         const messageElement = document.getElementById('message');
 
         function showMessage(text, isError) {
-            messageElement.style.color = isError ? 'red' : 'green';
             messageElement.textContent = text;
+            messageElement.className = 'msg' + (text ? (isError ? ' msg-error' : ' msg-success') : '');
         }
 
         async function loadParties() {
             try {
-                const response = await fetch(AppConfig.getEndpoint('/parties'), {
-                    method: 'GET',
-                    credentials: 'include'
-                });
-
-                if (response.status === 401) {
-                    window.location.href = 'auth/login.html';
-                    return;
-                }
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    showMessage('Ошибка загрузки: ' + (result.error || JSON.stringify(result)), true);
-                    return;
-                }
-
+                const result = await Api.api('/parties', 'GET');
                 let parties = result.data && result.data.data ? result.data.data : result.data;
                 if (!Array.isArray(parties)) {
                     parties = [];
                 }
                 renderParties(parties);
             } catch (error) {
-                showMessage('Сетевая ошибка: ' + error.message, true);
+                if (error.status === 401) {
+                    window.location.href = 'auth/login.html';
+                    return;
+                }
+                const prefix = error.status === undefined ? 'Сетевая ошибка: ' : 'Ошибка загрузки: ';
+                showMessage(prefix + error.message, true);
             }
         }
 
@@ -76,9 +68,9 @@
                 const isActive = p.isActive !== undefined ? p.isActive : (p.IsActive !== undefined ? p.IsActive : true);
 
                 html += '<tr>';
-                html += '<td>' + escapeHtml(name) + '</td>';
-                html += '<td>' + escapeHtml(description) + '</td>';
-                html += '<td>' + escapeHtml(inviteCode) + '</td>';
+                html += '<td>' + Api.escapeHtml(name) + '</td>';
+                html += '<td>' + Api.escapeHtml(description) + '</td>';
+                html += '<td>' + Api.escapeHtml(inviteCode) + '</td>';
                 html += '<td>' + (isActive ? 'активна' : 'закрыта') + '</td>';
                 html += '<td><a href="party.html?id=' + (p.id || p.ID) + '">Открыть</a></td>';
                 html += '</tr>';
@@ -87,12 +79,6 @@
             html += '</table>';
 
             partyList.innerHTML = html;
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text == null ? '' : String(text);
-            return div.innerHTML;
         }
 
         document.addEventListener('DOMContentLoaded', loadParties);

@@ -2,7 +2,10 @@
 <html>
 
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Login</title>
+    <link rel="stylesheet" href="../css/style.css">
 </head>
 
 <body>
@@ -14,9 +17,10 @@
         <input type="password" id="password" name="password" required><br><br>
         <button type="submit">Login</button>
     </form>
-    <p id="message"></p>
+    <p id="message" class="msg"></p>
 
     <script src="../js/config.js"></script>
+    <script src="../js/api.js"></script>
 
     <script>
         document.getElementById('loginForm').addEventListener('submit', async function (event) {
@@ -27,28 +31,13 @@
             const messageElement = document.getElementById('message');
 
             try {
-                const response = await fetch(AppConfig.getEndpoint('/auth/login'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ email, password }),
-                    credentials: 'include'
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    messageElement.style.color = 'green';
-                    messageElement.textContent = 'Success: ' + (data.message || JSON.stringify(data));
-                    window.location.href = '../main.html';
-                } else {
-                    messageElement.style.color = 'red';
-                    messageElement.textContent = 'Error: ' + (data.error || JSON.stringify(data));
-                }
+                const data = await Api.api('/auth/login', 'POST', { email, password });
+                messageElement.className = 'msg msg-success';
+                messageElement.textContent = 'Success: ' + (data.message || JSON.stringify(data));
+                window.location.href = '../main.html';
             } catch (error) {
-                messageElement.style.color = 'red';
-                messageElement.textContent = 'Network error: ' + error.message;
+                messageElement.className = 'msg msg-error';
+                messageElement.textContent = (error.status === undefined ? 'Network error: ' : 'Error: ') + error.message;
             }
         });
     </script>

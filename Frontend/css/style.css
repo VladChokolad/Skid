@@ -1,0 +1,223 @@
+/* Frontend/css/style.css — общий стиль для всех страниц Skid */
+
+:root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --text: #1c1f24;
+    --muted: #6b7280;
+    --border: #dde1e6;
+    --primary: #3457d5;
+    --primary-hover: #2a44ac;
+    --success-bg: #e6f6ec;
+    --success-text: #1a7f37;
+    --success-border: #b7e4c7;
+    --error-bg: #fdecec;
+    --error-text: #b3261e;
+    --error-border: #f3b8b5;
+    --radius: 8px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0 16px 48px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+}
+
+body > h1:first-of-type {
+    max-width: 900px;
+    margin: 24px auto 0;
+}
+
+nav,
+form,
+table,
+h2,
+h3,
+p,
+.card {
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+hr {
+    max-width: 900px;
+    margin: 24px auto;
+    border: none;
+    border-top: 1px solid var(--border);
+}
+
+nav {
+    display: block;
+    padding: 10px 0;
+    font-size: 0.95em;
+}
+
+nav a {
+    color: var(--primary);
+    text-decoration: none;
+    margin-right: 4px;
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
+
+a {
+    color: var(--primary);
+}
+
+h1, h2, h3 {
+    line-height: 1.25;
+}
+
+/* ---------- Сообщения (успех/ошибка) ---------- */
+.msg {
+    padding: 0;
+    margin: 0 auto;
+    border-radius: var(--radius);
+    font-size: 0.95em;
+}
+
+.msg:empty {
+    display: none;
+}
+
+.msg-success,
+.msg-error {
+    padding: 10px 14px;
+    margin: 16px auto;
+    border: 1px solid transparent;
+}
+
+.msg-success {
+    background: var(--success-bg);
+    color: var(--success-text);
+    border-color: var(--success-border);
+}
+
+.msg-error {
+    background: var(--error-bg);
+    color: var(--error-text);
+    border-color: var(--error-border);
+}
+
+/* ---------- Формы ---------- */
+form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 16px;
+}
+
+label {
+    display: inline-block;
+    margin-top: 10px;
+    margin-bottom: 4px;
+    font-size: 0.9em;
+    color: var(--muted);
+}
+
+input,
+textarea,
+select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font: inherit;
+    background: var(--surface);
+    color: var(--text);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+
+textarea {
+    min-height: 70px;
+    resize: vertical;
+}
+
+/* ---------- Кнопки ---------- */
+button {
+    font: inherit;
+    padding: 8px 16px;
+    margin-top: 12px;
+    margin-right: 8px;
+    border: 1px solid var(--primary);
+    border-radius: 6px;
+    background: var(--primary);
+    color: #fff;
+    cursor: pointer;
+}
+
+button:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+button[type="button"] {
+    background: var(--surface);
+    color: var(--primary);
+}
+
+button[type="button"]:hover {
+    background: var(--bg);
+}
+
+/* ---------- Таблицы ---------- */
+table {
+    display: block;
+    overflow-x: auto;
+    max-width: 900px;
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+th,
+td {
+    border: 1px solid var(--border) !important;
+    padding: 8px 10px !important;
+    text-align: left;
+    white-space: nowrap;
+}
+
+th {
+    background: var(--bg);
+    font-weight: 600;
+}
+
+table button {
+    margin: 0;
+    padding: 4px 10px;
+    font-size: 0.9em;
+}
+
+/* ---------- Вспомогательное ---------- */
+.hidden {
+    display: none !important;
+}
+
+.muted {
+    color: var(--muted);
+}
