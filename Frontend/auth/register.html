@@ -21,7 +21,8 @@
         <label for="email">Email:</label><br>
         <input type="email" id="email" name="email" required><br>
         <label for="password">Password:</label><br>
-        <input type="password" id="password" name="password" required><br><br>
+        <input type="password" id="password" name="password" minlength="8" required><br>
+        <small class="muted">Минимум 8 символов</small><br><br>
         <button type="submit">Register</button>
     </form>
     <p id="message" class="msg"></p>
@@ -44,6 +45,9 @@
                 const data = await Api.api('/auth/register', 'POST', { name, email, password });
                 messageElement.className = 'msg msg-success';
                 messageElement.textContent = 'Success: ' + (data.message || JSON.stringify(data));
+                // Бэкенд сразу логинит только что зарегистрированного пользователя
+                const redirect = new URLSearchParams(window.location.search).get('redirect');
+                window.location.href = '../' + (Api.sanitizeRedirect(redirect) || 'main.html');
             } catch (error) {
                 messageElement.className = 'msg msg-error';
                 messageElement.textContent = (error.status === undefined ? 'Network error: ' : 'Error: ') + error.message;

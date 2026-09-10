@@ -15,6 +15,11 @@
 
     <hr>
 
+    <div id="guestBanner" class="msg msg-info hidden">
+        Вы работаете как гость — доступ к тусовкам привязан к этому браузеру.
+        <a href="auth/register.html">Зарегистрируйтесь</a>, чтобы не потерять его при очистке cookie или на другом устройстве.
+    </div>
+
     <h2>Присоединиться по приглашению</h2>
     <form id="inviteForm">
         <label for="inviteCode">Invite-код:</label>
@@ -44,6 +49,14 @@
                 return;
             }
             window.location.href = 'invite.html?code=' + encodeURIComponent(code);
+        });
+
+        // nav.js уже запросил /profile для шапки — переиспользуем результат
+        // вместо повторного запроса
+        document.addEventListener('sitenav:me', function (event) {
+            const me = event.detail;
+            const isGuest = !me || me.isAnon;
+            document.getElementById('guestBanner').classList.toggle('hidden', !isGuest);
         });
     </script>
 </body>
