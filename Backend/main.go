@@ -83,6 +83,7 @@ func main() {
 			r.Get("/payments", h.GetPaymentsHandler)
 			r.Post("/payments", h.CreatePaymentHandler)
 			r.Post("/payments/{paymentID}/confirm", h.ConfirmPaymentHandler)
+			r.Delete("/payments/{paymentID}", h.DeletePaymentHandler)
 			//Сводка
 			r.Get("/settlements", h.GetSettlementsHandler)
 		})

@@ -255,6 +255,24 @@
             return false;
         }
 
+        // Удалить платёж может отправитель, админ или владелец тусовки — см. DeletePaymentHandler
+        function canDeletePayment(pay) {
+            if (!window._me) return true;
+            const myParticipant = findMyParticipant();
+            if (!myParticipant) return true;
+
+            const myParticipantID = myParticipant.id || myParticipant.ID;
+            if (pay.fromParticipantID === myParticipantID) return true;
+            if (myParticipant.isAdmin || myParticipant.IsAdmin) return true;
+
+            const party = window._party;
+            if (party && !window._me.isAnon) {
+                const ownerID = party.ownerID != null ? party.ownerID : party.OwnerID;
+                if (ownerID === window._me.id) return true;
+            }
+            return false;
+        }
+
         // Может ли текущий пользователь управлять тусовкой (добавлять/удалять участников —
         // бэкенд разрешает это владельцу тусовки или участнику с isAdmin)
         function isPartyAdminOrOwner() {
@@ -584,14 +602,17 @@
                     const toName = getParticipantName(pay.toParticipantID);
                     const isConfirmed = pay.isConfirmed !== undefined ? pay.isConfirmed : pay.IsConfirmed;
                     const showConfirmBtn = !isConfirmed && canConfirmPayment(pay);
+                    const showDeleteBtn = canDeletePayment(pay);
+                    let actions = '';
+                    if (showConfirmBtn) actions += '<button onclick="confirmPayment(this, ' + pay.id + ')">Подтвердить</button> ';
+                    if (showDeleteBtn) actions += '<button onclick="deletePayment(this, ' + pay.id + ')">Удалить</button>';
                     html += '<tr><td>' + Api.fmtDate(pay.createdAt) + '</td>' +
                         '<td>' + Api.escapeHtml(fromName) + '</td>' +
                         '<td>' + Api.escapeHtml(toName) + '</td>' +
                         '<td>' + Api.fmtMoney(pay.amount) + '</td>' +
                         '<td>' + Api.escapeHtml(pay.note || '') + '</td>' +
                         '<td>' + (isConfirmed ? 'подтверждён' : 'ожидает') + '</td>' +
-                        '<td>' + (showConfirmBtn ? '<button onclick="confirmPayment(this, ' + pay.id + ')">Подтвердить</button>' : '') +
-                        '</td></tr>';
+                        '<td>' + actions + '</td></tr>';
                 }
                 html += '</table>';
                 document.getElementById('payments').innerHTML = html;
@@ -605,6 +626,20 @@
                 try {
                     await Api.api('/parties/' + partyID + '/payments/' + paymentID + '/confirm', 'POST');
                     showMessage('Платёж подтверждён', false);
+                    loadPayments();
+                    loadSettlements();
+                } catch (e) {
+                    showMessage('Ошибка: ' + e.message, true);
+                }
+            });
+        }
+
+        async function deletePayment(btn, paymentID) {
+            if (!confirm('Удалить платёж?')) return;
+            await withLoading(btn, 'Удаление...', async function () {
+                try {
+                    await Api.api('/parties/' + partyID + '/payments/' + paymentID, 'DELETE');
+                    showMessage('Платёж удалён', false);
                     loadPayments();
                     loadSettlements();
                 } catch (e) {

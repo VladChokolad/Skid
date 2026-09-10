@@ -113,3 +113,37 @@ func (h *Handler) ConfirmPaymentHandler(w http.ResponseWriter, r *http.Request) 
 
 	sendSuccessResponse(w, http.StatusOK, "Платёж подтверждён", nil)
 }
+
+func (h *Handler) DeletePaymentHandler(w http.ResponseWriter, r *http.Request) {
+	// Членство уже проверено RequirePartyMember
+	party, participant, _ := middleware.PartyAndParticipantFromContext(r.Context())
+
+	paymentID, err := strconv.Atoi(chi.URLParam(r, "paymentID"))
+	if err != nil {
+		sendErrorResponse(w, http.StatusBadRequest, "Неверный ID платежа")
+		return
+	}
+
+	payment, err := h.storage.GetPaymentByID(paymentID)
+	if err != nil {
+		sendErrorResponse(w, http.StatusNotFound, "Платёж не найден")
+		return
+	}
+	if payment.PartyID != party.ID {
+		sendErrorResponse(w, http.StatusForbidden, "Платёж не принадлежит этой тусовке")
+		return
+	}
+	// Удалить может только отправитель платежа или админ/владелец тусовки
+	// (владелец тусовки всегда является admin своего участника — см. CreatePartyHandler)
+	if payment.FromParticipantID != participant.ID && !participant.IsAdmin {
+		sendErrorResponse(w, http.StatusForbidden, "Удалить платёж может только отправитель или администратор тусовки")
+		return
+	}
+
+	if err := h.storage.DeletePayment(paymentID); err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при удалении платежа")
+		return
+	}
+
+	sendSuccessResponse(w, http.StatusOK, "Платёж удалён", nil)
+}
