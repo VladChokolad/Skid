@@ -14,6 +14,9 @@
     --error-bg: #fdecec;
     --error-text: #b3261e;
     --error-border: #f3b8b5;
+    --info-bg: #eaf1fd;
+    --info-text: #1c4ed8;
+    --info-border: #bcd3f7;
     --radius: 8px;
 }
 
@@ -166,7 +169,8 @@ h1, h2, h3 {
 }
 
 .msg-success,
-.msg-error {
+.msg-error,
+.msg-info {
     padding: 10px 14px;
     margin: 16px auto;
     border: 1px solid transparent;
@@ -182,6 +186,17 @@ h1, h2, h3 {
     background: var(--error-bg);
     color: var(--error-text);
     border-color: var(--error-border);
+}
+
+.msg-info {
+    background: var(--info-bg);
+    color: var(--info-text);
+    border-color: var(--info-border);
+}
+
+.msg-info a {
+    color: inherit;
+    font-weight: 600;
 }
 
 /* ---------- Формы ---------- */

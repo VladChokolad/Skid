@@ -41,7 +41,8 @@
                 const data = await Api.api('/auth/login', 'POST', { email, password });
                 messageElement.className = 'msg msg-success';
                 messageElement.textContent = 'Success: ' + (data.message || JSON.stringify(data));
-                window.location.href = '../main.html';
+                const redirect = new URLSearchParams(window.location.search).get('redirect');
+                window.location.href = '../' + (Api.sanitizeRedirect(redirect) || 'main.html');
             } catch (error) {
                 messageElement.className = 'msg msg-error';
                 messageElement.textContent = (error.status === undefined ? 'Network error: ' : 'Error: ') + error.message;

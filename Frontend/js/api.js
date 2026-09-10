@@ -37,5 +37,16 @@ const Api = (function () {
         return num.toFixed(2) + ' ₽';
     }
 
-    return { api, escapeHtml, fmtMoney };
+    // Проверяет ?redirect= из query-строки перед использованием в навигации —
+    // защита от open redirect (чужой абсолютный URL/протокол вроде javascript:
+    // или //evil.com), пропускает только простой относительный путь внутри Frontend/.
+    function sanitizeRedirect(target) {
+        if (!target) return null;
+        if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(target)) return null;
+        if (target.indexOf('//') === 0) return null;
+        if (target.indexOf('/') === 0) return null;
+        return target;
+    }
+
+    return { api, escapeHtml, fmtMoney, sanitizeRedirect };
 })();

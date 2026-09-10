@@ -62,11 +62,20 @@ func (h *Handler) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
 		PasswordHash: string(passwordHash),
 	}
 	//Отправляем пользователя в бд
-	_, err = h.storage.CreateUser(user)
+	userID, err := h.storage.CreateUser(user)
 	if err != nil {
 		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при создании пользователя")
 		return
 	}
+
+	// Сразу логиним только что зарегистрированного пользователя — иначе он
+	// получает лишь сообщение об успехе и должен отдельно идти на страницу входа
+	token, err := auth.CreateToken(userID, false, 14, h.cfg.JWTSecret)
+	if err != nil {
+		sendErrorResponse(w, http.StatusInternalServerError, "Ошибка при генерации токена")
+		return
+	}
+	middleware.SetGuestCookie(w, token)
 
 	sendSuccessResponse(w, http.StatusCreated, "Пользователь успешно зарегистрирован", nil)
 }
